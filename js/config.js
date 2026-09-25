@@ -2,25 +2,26 @@
 
 // 1) คัดลอกค่าจาก Firebase Console > Project settings > Your apps > Web app
 export const firebaseConfig = {
-  apiKey: "ใส่ของคุณ",
-  authDomain: "ใส่ของคุณ.firebaseapp.com",
-  projectId: "ใส่ของคุณ",
-  storageBucket: "ใส่ของคุณ.appspot.com",
-  messagingSenderId: "ใส่ของคุณ",
-  appId: "ใส่ของคุณ",
+  apiKey: "AIzaSyCTg-tfdRdCpJWqDlYotk1ZVcSai5umOgQ",
+  authDomain: "attendance-26954.firebaseapp.com",
+  projectId: "attendance-26954",
+  storageBucket: "attendance-26954.firebasestorage.app",
+  messagingSenderId: "729880491208",
+  appId: "1:729880491208:web:e66aa1663bbd7637ea21fd",
+  measurementId: "G-RRJJ0ZN9T4"
 };
 
 // 2) อีเมลบัญชีครู (ต้องตรงกับใน firestore.rules ด้วย)
-export const TEACHER_EMAILS = ["teacher@example.com"];
+export const TEACHER_EMAILS = ["preechaya.te@gmail.com"];
 
 // 3) รายวิชา / ห้องที่สอน — แก้ชื่อห้องได้ แต่ห้ามเปลี่ยน id หลังเริ่มใช้งานจริง
 export const SECTIONS = [
-  { id: "sci3-r1", subject: "วิทยาศาสตร์ 3", room: "ห้อง 1" },
-  { id: "sci3-r2", subject: "วิทยาศาสตร์ 3", room: "ห้อง 2" },
-  { id: "sci3-r3", subject: "วิทยาศาสตร์ 3", room: "ห้อง 3" },
-  { id: "sci3-r4", subject: "วิทยาศาสตร์ 3", room: "ห้อง 4" },
+  { id: "sci3-r1", subject: "วิทยาศาสตร์ 3", room: "ห้อง 2" },
+  { id: "sci3-r2", subject: "วิทยาศาสตร์ 3", room: "ห้อง 4" },
+  { id: "sci3-r3", subject: "วิทยาศาสตร์ 3", room: "ห้อง 6" },
+  { id: "sci3-r4", subject: "วิทยาศาสตร์ 3", room: "ห้อง 8" },
   { id: "daily-r1", subject: "วิทยาศาสตร์เพื่อชีวิตประจำวัน", room: "ห้อง 1" },
-  { id: "bio-r1", subject: "ชีวะคือชีวิต", room: "ห้อง 1" },
+  { id: "bio-r1", subject: "ชีวะคือชีวิต", room: "ม.3" },
 ];
 
 // 4) คะแนน
