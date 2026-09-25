@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>เช็คชื่อเข้าเรียน</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><h1>✅ เช็คชื่อเข้าเรียน</h1><button id="logout" class="sm">ออกจากระบบ</button></header>
+<main>
+  <div class="card narrow" id="box"><p class="muted">กำลังโหลด...</p></div>
+</main>
+
+<script type="module">
+import { auth, db, $, esc, toast, deviceId, fullName, thDate, thError,
+  onAuthStateChanged, signOut, doc, getDoc, writeBatch, serverTimestamp } from "./js/common.js";
+
+const qs = new URLSearchParams(location.search);
+const sessionId = qs.get("s"), token = qs.get("t");
+const box = $("#box");
+
+$("#logout").onclick = async () => {
+  await signOut(auth);
+  location.replace("index.html?next=" + encodeURIComponent("checkin.html" + location.search));
+};
+
+if (!sessionId || !token) {
+  box.innerHTML = `<div class="alert bad">ลิงก์ไม่ถูกต้อง ให้สแกน QR ที่หน้าห้องใหม่อีกครั้ง</div>`;
+} else {
+  onAuthStateChanged(auth, async user => {
+    if (!user) {
+      location.replace("index.html?next=" + encodeURIComponent("checkin.html" + location.search));
+      return;
+    }
+    const snap = await getDoc(doc(db, "students", user.uid));
+    if (!snap.exists()) {
+      box.innerHTML = `<div class="alert bad">บัญชีนี้ยังไม่มีข้อมูลนักเรียน</div><a class="btn" href="student.html">ไปกรอกข้อมูล</a>`;
+      return;
+    }
+    const me = snap.data();
+
+    // เคยเช็คชื่อรอบนี้ไปแล้วหรือยัง
+    try {
+      const a = await getDoc(doc(db, "sessions", sessionId, "attendance", user.uid));
+      if (a.exists() && a.data().status !== "absent") return showDone(me, a.data().time);
+    } catch (e) {}
+
+    box.innerHTML = `
+      <div class="big-check">
+        <div class="muted">ยืนยันตัวตน</div>
+        <div class="name">${esc(fullName(me))}</div>
+        <div>ชื่อเล่น <b>${esc(me.nickname)}</b> · เลขที่ ${esc(me.no)} · รหัส ${esc(me.studentId)}</div>
+        <p class="alert warn" style="margin-top:16px;text-align:left">
+          ⚠️ ห้ามสแกนแทนเพื่อน — 1 เครื่องเช็คชื่อได้ 1 บัญชีต่อคาบ และ QR เปลี่ยนทุกไม่กี่วินาที</p>
+        <button id="go" style="width:100%;font-size:1.2rem;padding:14px">✅ ยืนยันเช็คชื่อ</button>
+        <p class="muted">ถ้าไม่ใช่ชื่อคุณ ให้กด "ออกจากระบบ" ด้านบน</p>
+      </div>`;
+
+    $("#go").onclick = async () => {
+      $("#go").disabled = true;
+      const dev = deviceId();
+      const batch = writeBatch(db);
+      batch.set(doc(db, "sessions", sessionId, "devices", dev), { uid: user.uid, time: serverTimestamp() });
+      batch.set(doc(db, "sessions", sessionId, "attendance", user.uid), {
+        uid: user.uid, status: "present", method: "scan", token, deviceId: dev, time: serverTimestamp(),
+      });
+      try {
+        await batch.commit();
+        showDone(me, new Date());
+      } catch (e) {
+        $("#go").disabled = false;
+        if ((e.code || "").includes("permission-denied")) {
+          box.insertAdjacentHTML("afterbegin", `<div class="alert bad">
+            เช็คชื่อไม่สำเร็จ อาจเป็นเพราะ:<br>
+            • QR หมดอายุแล้ว → <b>สแกน QR ใหม่ที่หน้าห้อง</b><br>
+            • ครูปิดรับเช็คชื่อแล้ว<br>
+            • คุณไม่ได้ลงทะเบียนวิชา/ห้องนี้ (แก้ได้ที่หน้านักเรียน)<br>
+            • เครื่องนี้ถูกใช้เช็คชื่อบัญชีอื่นในคาบนี้ไปแล้ว</div>`);
+        } else toast(thError(e), "bad");
+      }
+    };
+  });
+}
+
+function showDone(me, time) {
+  box.innerHTML = `
+    <div class="big-check">
+      <div class="icon">🎉</div>
+      <div class="name">เช็คชื่อสำเร็จ</div>
+      <div>${esc(fullName(me))} (${esc(me.nickname)})</div>
+      <p class="muted">${thDate(time || new Date(), true)}</p>
+      <a class="btn ghost" href="student.html">ดูคะแนน / ภาระงานของฉัน</a>
+    </div>`;
+}
+</script>
+</body>
+</html>

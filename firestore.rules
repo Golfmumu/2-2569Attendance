@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ⚠️ แก้เป็นอีเมลครูให้ตรงกับ js/config.js
+    function isTeacher() {
+      return request.auth != null && request.auth.token.email in ['teacher@example.com'];
+    }
+    function signedIn() { return request.auth != null; }
+    function sess(sid) { return get(/databases/$(database)/documents/sessions/$(sid)).data; }
+
+    function validStudent() {
+      let d = request.resource.data;
+      return d.firstName is string && d.firstName.size() > 0 && d.firstName.size() < 80
+        && d.lastName is string && d.lastName.size() > 0 && d.lastName.size() < 80
+        && d.nickname is string && d.nickname.size() > 0 && d.nickname.size() < 40
+        && d.studentId is string && d.studentId.size() > 0 && d.studentId.size() < 20
+        && d.sections is list && d.sections.size() > 0 && d.sections.size() <= 10;
+    }
+
+    // ข้อมูลนักเรียน: อ่าน/แก้ได้เฉพาะของตัวเอง ครูจัดการได้ทั้งหมด
+    match /students/{uid} {
+      allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+      allow create: if signedIn() && request.auth.uid == uid && validStudent();
+      allow update: if isTeacher()
+        || (signedIn() && request.auth.uid == uid && validStudent()
+            && request.resource.data.studentId == resource.data.studentId);
+      allow delete: if isTeacher();
+    }
+
+    // ตั้งค่าห้อง (ชื่อช่องคะแนน คะแนนเต็มกลางภาค)
+    match /sections/{sid} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+    }
+
+    // ภาระงาน
+    match /assignments/{id} {
+      allow read: if signedIn();
+      allow write: if isTeacher();
+    }
+
+    // คะแนน: นักเรียนเห็นเฉพาะของตัวเอง
+    match /scores/{id} {
+      allow read: if isTeacher() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow write: if isTeacher();
+    }
+
+    // รอบเช็คชื่อ: นักเรียน "อ่านไม่ได้" (จะได้ไม่รู้รหัส QR ถ้าไม่ได้อยู่ในห้อง)
+    match /sessions/{sid} {
+      allow read, write: if isTeacher();
+
+      // เครื่องที่ใช้เช็คชื่อ: 1 เครื่อง = 1 บัญชีต่อรอบ
+      match /devices/{dev} {
+        allow create: if signedIn() && request.resource.data.uid == request.auth.uid && sess(sid).open == true;
+        allow update: if signedIn() && resource.data.uid == request.auth.uid
+                      && request.resource.data.uid == request.auth.uid && sess(sid).open == true;
+        allow read, delete: if isTeacher();
+      }
+
+      match /attendance/{uid} {
+        allow read: if isTeacher() || (signedIn() && request.auth.uid == uid);
+        allow update, delete: if isTeacher();
+        allow create: if isTeacher() || (
+          signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['uid', 'status', 'method', 'token', 'deviceId', 'time'])
+          && request.resource.data.uid == uid
+          && request.resource.data.status == 'present'
+          && request.resource.data.method == 'scan'
+          && request.resource.data.time == request.time
+          && sess(sid).open == true
+          && (request.resource.data.token == sess(sid).token || request.resource.data.token == sess(sid).prevToken)
+          && sess(sid).sectionId in get(/databases/$(database)/documents/students/$(uid)).data.sections
+          && getAfter(/databases/$(database)/documents/sessions/$(sid)/devices/$(request.resource.data.deviceId)).data.uid == uid
+        );
+      }
+    }
+  }
+}

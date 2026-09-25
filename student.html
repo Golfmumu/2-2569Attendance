@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หน้านักเรียน</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <h1>🎒 หน้านักเรียน</h1>
+  <span class="who" id="who"></span>
+  <button id="logout" class="sm">ออกจากระบบ</button>
+</header>
+<main>
+  <div id="alerts"></div>
+  <div class="tabs">
+    <button data-tab="work" class="active">ภาระงาน</button>
+    <button data-tab="scores">คะแนนของฉัน</button>
+    <button data-tab="profile">ข้อมูลส่วนตัว</button>
+  </div>
+  <section id="tab-work"></section>
+  <section id="tab-scores" class="hidden"></section>
+  <section id="tab-profile" class="hidden">
+    <div class="card narrow" style="margin-top:0">
+      <h2>ข้อมูลส่วนตัว</h2>
+      <form id="pf">
+        <div class="grid2">
+          <div><label>รหัสนักเรียน</label><input id="pf_id" disabled></div>
+          <div><label>เลขที่</label><input id="pf_no" type="number" min="1" max="99" required></div>
+          <div><label>ชื่อจริง</label><input id="pf_fn" required></div>
+          <div><label>นามสกุล</label><input id="pf_ln" required></div>
+        </div>
+        <label>ชื่อเล่น</label><input id="pf_nick" required>
+        <label>รายวิชา / ห้องที่เรียน</label>
+        <div class="checks" id="pf_sections"></div>
+        <p><button type="submit">บันทึก</button></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, SECTIONS, SLOT_COUNT, SLOT_MAX,
+  DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail,
+  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp } from "./js/common.js";
+
+$("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
+$$(".tabs button").forEach(b => b.onclick = () => {
+  $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
+  ["work", "scores", "profile"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+});
+$("#pf_sections").innerHTML = SECTIONS.map(s =>
+  `<label><input type="checkbox" value="${esc(s.id)}"> ${esc(s.subject)} — ${esc(s.room)}</label>`).join("");
+
+let user, me;
+
+onAuthStateChanged(auth, async u => {
+  if (!u) return location.replace("index.html");
+  if (isTeacherEmail(u.email)) return location.replace("teacher.html");
+  user = u;
+  const snap = await getDoc(doc(db, "students", u.uid));
+  me = snap.exists() ? snap.data() : null;
+  fillProfile();
+  if (!me || !me.sections?.length) {
+    $$(".tabs button")[2].click();
+    $("#alerts").innerHTML = `<div class="alert warn">กรุณากรอกข้อมูลส่วนตัวและเลือกรายวิชาให้ครบก่อน</div>`;
+    return;
+  }
+  $("#who").textContent = `${fullName(me)} (${me.nickname})`;
+  loadAll();
+});
+
+function fillProfile() {
+  $("#pf_id").value = me?.studentId || user.email.replace("@" + STUDENT_EMAIL_DOMAIN, "");
+  $("#pf_no").value = me?.no ?? "";
+  $("#pf_fn").value = me?.firstName ?? "";
+  $("#pf_ln").value = me?.lastName ?? "";
+  $("#pf_nick").value = me?.nickname ?? "";
+  $$("#pf_sections input").forEach(i => i.checked = !!me?.sections?.includes(i.value));
+}
+
+$("#pf").onsubmit = async e => {
+  e.preventDefault();
+  const sections = $$("#pf_sections input:checked").map(i => i.value);
+  if (!sections.length) return toast("เลือกรายวิชาอย่างน้อย 1 วิชา", "bad");
+  const data = {
+    studentId: $("#pf_id").value, no: Number($("#pf_no").value),
+    firstName: $("#pf_fn").value.trim(), lastName: $("#pf_ln").value.trim(),
+    nickname: $("#pf_nick").value.trim(), sections,
+    createdAt: me?.createdAt || serverTimestamp(),
+  };
+  try {
+    await setDoc(doc(db, "students", user.uid), data);
+    me = data; toast("บันทึกแล้ว");
+    $("#who").textContent = `${fullName(me)} (${me.nickname})`;
+    $("#alerts").innerHTML = "";
+    loadAll();
+  } catch (err) { toast(thError(err), "bad"); }
+};
+
+async function loadAll() {
+  const secIds = me.sections;
+  const [scoreSnap, asgSnap, secDocs] = await Promise.all([
+    getDocs(query(collection(db, "scores"), where("uid", "==", user.uid))),
+    getDocs(query(collection(db, "assignments"), where("sectionId", "in", secIds))),
+    Promise.all(secIds.map(id => getDoc(doc(db, "sections", id)))),
+  ]);
+  const scores = {};
+  scoreSnap.forEach(d => scores[d.data().sectionId] = d.data());
+  const secInfo = {};
+  secDocs.forEach((d, i) => secInfo[secIds[i]] = d.exists() ? d.data() : {});
+  const asgs = asgSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  renderScores(secIds, scores, secInfo);
+  renderWork(asgs, scores);
+}
+
+function slotVal(sc, i) { const v = sc?.s?.[i]; return typeof v === "number" ? v : null; }
+
+function renderScores(secIds, scores, secInfo) {
+  $("#tab-scores").innerHTML = secIds.map(id => {
+    const sc = scores[id], info = secInfo[id] || {};
+    const names = info.slotNames || [];
+    const mMax = info.midtermMax ?? DEFAULT_MIDTERM_MAX;
+    let sum = 0;
+    const cells = Array.from({ length: SLOT_COUNT }, (_, i) => {
+      const v = slotVal(sc, i); if (v !== null) sum += v;
+      return `<tr><td>${esc(names[i] || "ช่องที่ " + (i + 1))}</td><td class="num">${v ?? "-"}</td><td class="num">${SLOT_MAX}</td></tr>`;
+    }).join("");
+    const mid = typeof sc?.midterm === "number" ? sc.midterm : null;
+    return `<div class="card"><h2>${esc(sectionLabel(id))}</h2>
+      <div class="stats">
+        <div class="stat present"><b>${sum}</b>คะแนนเก็บ / ${SLOT_COUNT * SLOT_MAX}</div>
+        <div class="stat leave"><b>${mid ?? "-"}</b>กลางภาค / ${mMax}</div>
+      </div>
+      <div class="table-wrap"><table><tr><th>รายการ</th><th class="num">ได้</th><th class="num">เต็ม</th></tr>${cells}
+      <tr><td>สอบกลางภาค</td><td class="num">${mid ?? "-"}</td><td class="num">${mMax}</td></tr></table></div></div>`;
+  }).join("");
+}
+
+function renderWork(asgs, scores) {
+  const now = Date.now(), DAY = 86400000;
+  const items = asgs.map(a => {
+    const due = a.due?.toDate ? a.due.toDate() : null;
+    const done = a.slot !== null && a.slot !== undefined && slotVal(scores[a.sectionId], a.slot) !== null;
+    let st = "pending";
+    if (done) st = "done";
+    else if (due && due.getTime() < now) st = "overdue";
+    else if (due && due.getTime() - now < 2 * DAY) st = "soon";
+    return { ...a, due, st };
+  }).sort((x, y) => (x.due?.getTime() ?? 9e15) - (y.due?.getTime() ?? 9e15));
+
+  const label = { done: "✅ ส่งแล้ว", overdue: "🔴 เลยกำหนดส่ง", soon: "🟠 ใกล้ครบกำหนด", pending: "🔵 ยังไม่ส่ง" };
+  const overdue = items.filter(i => i.st === "overdue"), soon = items.filter(i => i.st === "soon");
+
+  let alerts = "";
+  if (overdue.length) alerts += `<div class="alert bad">🔴 มีงานเลยกำหนดส่ง <b>${overdue.length}</b> งาน: ${overdue.map(i => esc(i.title)).join(", ")} — รีบส่งด่วน!</div>`;
+  if (soon.length) alerts += `<div class="alert warn">🟠 งานใกล้ครบกำหนด (ภายใน 2 วัน): ${soon.map(i => esc(i.title) + " (" + thDate(i.due, true) + ")").join(", ")}</div>`;
+  $("#alerts").innerHTML = alerts;
+
+  const open = items.filter(i => i.st !== "done"), done = items.filter(i => i.st === "done");
+  const card = i => `<div class="assign ${i.st}">
+      <div class="t">${esc(i.title)} <span class="muted">· ${esc(sectionLabel(i.sectionId))}</span></div>
+      ${i.detail ? `<div style="white-space:pre-wrap;margin:6px 0">${esc(i.detail)}</div>` : ""}
+      <div class="muted">กำหนดส่ง: ${i.due ? thDate(i.due, true) : "ไม่ระบุ"} · ${label[i.st]}</div></div>`;
+  $("#tab-work").innerHTML = `
+    <div class="card"><h2>งานที่ต้องส่ง (${open.length})</h2>${open.map(card).join("") || `<p class="muted">ไม่มีงานค้าง 🎉</p>`}
+    <p class="no-print"><button class="ghost sm" id="notif">🔔 เปิดการแจ้งเตือนบนเครื่องนี้</button></p></div>
+    <div class="card"><h2>ส่งแล้ว (${done.length})</h2>${done.map(card).join("") || `<p class="muted">-</p>`}</div>`;
+
+  $("#notif").onclick = async () => {
+    if (!("Notification" in window)) return toast("เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน", "warn");
+    const p = await Notification.requestPermission();
+    if (p === "granted") { toast("เปิดการแจ้งเตือนแล้ว"); notify(overdue, soon); }
+  };
+  notify(overdue, soon);
+}
+
+function notify(overdue, soon) {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!overdue.length && !soon.length) return;
+  try {
+    new Notification("📚 เตือนส่งการบ้าน", {
+      body: [overdue.length ? `เลยกำหนด ${overdue.length} งาน` : "", soon.length ? `ใกล้ครบกำหนด ${soon.length} งาน` : ""].filter(Boolean).join(" · "),
+    });
+  } catch (e) {}
+}
+</script>
+</body>
+</html>

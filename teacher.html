@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>หน้าครู</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+<header class="top">
+  <h1>👩‍🏫 หน้าครู</h1>
+  <select id="secSel" style="width:auto;flex:0 1 320px;color:#1d2939"></select>
+  <button id="logout" class="sm">ออกจากระบบ</button>
+</header>
+<main>
+  <div class="tabs">
+    <button data-tab="att" class="active">เช็คชื่อ</button>
+    <button data-tab="score">คะแนนเก็บ</button>
+    <button data-tab="work">ภาระงาน</button>
+    <button data-tab="stu">รายชื่อนักเรียน</button>
+  </div>
+
+  <!-- ============ เช็คชื่อ ============ -->
+  <section id="tab-att">
+    <div class="card">
+      <div class="row">
+        <div><label>รอบเช็คชื่อ</label><select id="sessSel"></select></div>
+        <button id="newSess">➕ เปิด QR เช็คชื่อใหม่ (วันนี้)</button>
+        <button id="exportAtt" class="ghost">⬇️ สรุปการมาเรียน (CSV)</button>
+      </div>
+    </div>
+    <div id="sessArea" class="hidden">
+      <div class="card" id="qrCard">
+        <div class="qr-box">
+          <div id="qrState"></div>
+          <div id="qr"></div>
+          <div class="bar"><div id="qrBar"></div></div>
+          <div class="row" style="justify-content:center">
+            <button id="fullBtn">⛶ เต็มจอ</button>
+            <button id="toggleOpen" class="ghost">ปิดรับเช็คชื่อ</button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 id="sessTitle"></h2>
+        <div class="stats" id="attStats"></div>
+        <div class="row no-print" style="margin-bottom:10px">
+          <button class="sm ghost" id="allPresent">ทุกคนที่ยังขาด → มา</button>
+        </div>
+        <div class="table-wrap"><table id="attTable"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ คะแนน ============ -->
+  <section id="tab-score" class="hidden">
+    <div class="card">
+      <div class="row no-print" style="margin-bottom:12px">
+        <p class="muted" style="flex:3">ช่องละ 10 คะแนน × 10 ช่อง = 100 คะแนน · แก้ชื่อช่องได้ที่หัวตาราง · กด "บันทึก" หลังกรอกเสร็จ</p>
+        <button id="saveScores">💾 บันทึกคะแนน</button>
+        <button id="exportScores" class="ghost">⬇️ CSV</button>
+      </div>
+      <div class="table-wrap"><table class="scores" id="scoreTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ============ ภาระงาน ============ -->
+  <section id="tab-work" class="hidden">
+    <div class="card">
+      <h2>📢 แจ้งภาระงานใหม่</h2>
+      <form id="asgForm">
+        <label>ชื่องาน *</label><input id="as_title" required>
+        <label>รายละเอียด</label><textarea id="as_detail"></textarea>
+        <div class="row">
+          <div><label>กำหนดส่ง *</label><input id="as_due" type="datetime-local" required></div>
+          <div><label>ผูกกับช่องคะแนน (ใช้ดูว่าใครส่งแล้ว)</label><select id="as_slot"></select></div>
+          <div><label>แจ้งไปที่</label>
+            <select id="as_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
+        </div>
+        <p><button type="submit">แจ้งภาระงาน</button></p>
+      </form>
+    </div>
+    <div class="card"><h2>ภาระงานของห้องนี้</h2><div id="asgList"></div></div>
+  </section>
+
+  <!-- ============ นักเรียน ============ -->
+  <section id="tab-stu" class="hidden">
+    <div class="card">
+      <h2 id="stuTitle"></h2>
+      <p class="muted">นักเรียนสมัครบัญชีเองและเลือกห้องเอง · ถ้านักเรียนลืมรหัสผ่าน ให้ลบผู้ใช้ใน Firebase Console &gt; Authentication แล้วให้สมัครใหม่</p>
+      <div class="table-wrap"><table id="stuTable"></table></div>
+    </div>
+  </section>
+</main>
+
+<div class="qr-full hidden" id="qrFull">
+  <h2 id="fullTitle"></h2>
+  <div id="qrBig"></div>
+  <div class="bar"><div id="qrBar2"></div></div>
+  <div style="font-size:1.4rem">สแกนแล้ว <b id="fullCount">0</b> คน</div>
+  <button id="exitFull">ออกจากโหมดเต็มจอ</button>
+</div>
+
+<script type="module">
+import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, sectionById, randomToken, todayStr, downloadCSV,
+  isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
+  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
+  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove } from "./js/common.js";
+
+const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
+let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
+let scoreMap = {}, secInfo = {};
+
+$("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
+$$(".tabs button").forEach(b => b.onclick = () => {
+  $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
+  ["att", "score", "work", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+});
+$("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
+$("#as_slot").innerHTML = `<option value="">ไม่ผูก</option>` + Array.from({ length: SLOT_COUNT }, (_, i) => `<option value="${i}">ช่องที่ ${i + 1}</option>`).join("");
+
+onAuthStateChanged(auth, u => {
+  if (!u) return location.replace("index.html");
+  if (!isTeacherEmail(u.email)) return location.replace("student.html");
+  try { const last = localStorage.getItem("cc_sec"); if (last && sectionById(last)) $("#secSel").value = last; } catch (e) {}
+  selectSection($("#secSel").value);
+});
+$("#secSel").onchange = e => { try { localStorage.setItem("cc_sec", e.target.value); } catch (x) {} selectSection(e.target.value); };
+
+async function selectSection(id) {
+  sec = id;
+  stopSession();
+  const [stu, si, sc] = await Promise.all([
+    getDocs(query(collection(db, "students"), where("sections", "array-contains", id))),
+    getDoc(doc(db, "sections", id)),
+    getDocs(query(collection(db, "scores"), where("sectionId", "==", id))),
+  ]);
+  roster = stu.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => (a.no || 0) - (b.no || 0));
+  secInfo = si.exists() ? si.data() : {};
+  scoreMap = {}; sc.forEach(d => scoreMap[d.data().uid] = d.data());
+  renderStudents(); renderScores(); loadAssignments(); loadSessions();
+}
+
+/* ======================= เช็คชื่อ ======================= */
+async function loadSessions(selectId) {
+  const snap = await getDocs(query(collection(db, "sessions"), where("sectionId", "==", sec)));
+  sessions = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+  $("#sessSel").innerHTML = `<option value="">— เลือกรอบเช็คชื่อ —</option>` + sessions.map((s, i) =>
+    `<option value="${s.id}">${thDate(s.date)} · รอบ ${sessions.filter(x => x.date === s.date && (x.createdAt?.toMillis?.() ?? 0) <= (s.createdAt?.toMillis?.() ?? 0)).length}${s.open ? " (เปิดอยู่)" : ""}</option>`).join("");
+  if (selectId) { $("#sessSel").value = selectId; openSession(selectId); }
+}
+$("#sessSel").onchange = e => e.target.value ? openSession(e.target.value) : stopSession();
+
+$("#newSess").onclick = async () => {
+  $("#newSess").disabled = true;
+  try {
+    const ref = await addDoc(collection(db, "sessions"), {
+      sectionId: sec, date: todayStr(), open: true, token: randomToken(), prevToken: randomToken(), createdAt: serverTimestamp(),
+    });
+    await loadSessions(ref.id);
+  } catch (e) { toast(thError(e), "bad"); }
+  $("#newSess").disabled = false;
+};
+
+function stopSession() {
+  unsubAtt?.(); unsubSess?.(); unsubAtt = unsubSess = null;
+  clearInterval(rotTimer); clearInterval(barTimer);
+  curSess = null; attMap = {};
+  $("#sessArea").classList.add("hidden");
+  $("#qrFull").classList.add("hidden");
+}
+
+function openSession(id) {
+  stopSession();
+  $("#sessArea").classList.remove("hidden");
+  unsubSess = onSnapshot(doc(db, "sessions", id), d => {
+    const first = !curSess;
+    curSess = { id, ...d.data() };
+    $("#sessTitle").textContent = `${sectionLabel(sec)} · ${thDate(curSess.date)}`;
+    $("#fullTitle").textContent = `เช็คชื่อ ${sectionLabel(sec)}`;
+    $("#qrCard").classList.toggle("hidden", !curSess.open);
+    $("#toggleOpen").textContent = curSess.open ? "ปิดรับเช็คชื่อ" : "เปิดรับอีกครั้ง";
+    drawQR();
+    if (first) setupRotation();
+    renderAttendance();
+  });
+  unsubAtt = onSnapshot(collection(db, "sessions", id, "attendance"), snap => {
+    attMap = {}; snap.forEach(d => attMap[d.id] = d.data());
+    renderAttendance();
+  });
+}
+
+function checkinUrl() {
+  return new URL(`checkin.html?s=${curSess.id}&t=${curSess.token}`, location.href).href;
+}
+let qrSmall = null, qrBig = null;
+function drawQR() {
+  if (!curSess?.open) return;
+  const url = checkinUrl();
+  if (!qrSmall) qrSmall = new QRCode($("#qr"), { text: url, width: 280, height: 280, correctLevel: QRCode.CorrectLevel.M });
+  else qrSmall.makeCode(url);
+  const big = Math.min(innerWidth, innerHeight) - 220;
+  if (!qrBig) qrBig = new QRCode($("#qrBig"), { text: url, width: big, height: big, correctLevel: QRCode.CorrectLevel.M });
+  else qrBig.makeCode(url);
+  $("#qrState").innerHTML = `<span class="pill present">● เปิดรับเช็คชื่อ</span> <span class="muted">QR เปลี่ยนทุก ${QR_ROTATE_SECONDS} วินาที</span>`;
+}
+
+function setupRotation() {
+  let left = QR_ROTATE_SECONDS;
+  const bar = () => { const w = (left / QR_ROTATE_SECONDS) * 100 + "%"; $("#qrBar").style.width = w; $("#qrBar2").style.width = w; };
+  bar();
+  barTimer = setInterval(() => { left = Math.max(0, left - 1); bar(); }, 1000);
+  rotTimer = setInterval(async () => {
+    left = QR_ROTATE_SECONDS; bar();
+    if (!curSess?.open || document.hidden) return;
+    try { await updateDoc(doc(db, "sessions", curSess.id), { prevToken: curSess.token, token: randomToken() }); }
+    catch (e) { console.warn(e); }
+  }, QR_ROTATE_SECONDS * 1000);
+}
+
+$("#toggleOpen").onclick = async () => {
+  await updateDoc(doc(db, "sessions", curSess.id), { open: !curSess.open, token: randomToken(), prevToken: randomToken() });
+  loadSessions(curSess.id);
+};
+$("#fullBtn").onclick = () => { $("#qrFull").classList.remove("hidden"); document.documentElement.requestFullscreen?.().catch(() => {}); };
+$("#exitFull").onclick = () => { $("#qrFull").classList.add("hidden"); if (document.fullscreenElement) document.exitFullscreen(); };
+
+function statusOf(uid) { return attMap[uid]?.status || "absent"; }
+
+function renderAttendance() {
+  if (!curSess) return;
+  const counts = { present: 0, late: 0, leave: 0, absent: 0 };
+  roster.forEach(s => counts[statusOf(s.uid)]++);
+  $("#attStats").innerHTML = Object.keys(STATUS).map(k => `<div class="stat ${k}"><b>${counts[k]}</b>${STATUS[k]}</div>`).join("");
+  $("#fullCount").textContent = counts.present + counts.late;
+
+  // นักเรียนที่สแกนแต่ไม่อยู่ในรายชื่อห้อง (กรณีครูลบออกจากห้องไปแล้ว)
+  const extra = Object.keys(attMap).filter(uid => !roster.find(s => s.uid === uid));
+
+  $("#attTable").innerHTML = `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th></tr>` +
+    roster.map(s => {
+      const a = attMap[s.uid], st = statusOf(s.uid);
+      return `<tr><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>
+        <td>${a?.time ? thDate(a.time, true).split(" ").slice(-2).join(" ") : "-"}</td>
+        <td>${a ? (a.method === "scan" ? "📱 สแกน" : "✏️ ครู") : "-"}</td>
+        <td><span class="status-btns">${Object.keys(STATUS).map(k =>
+          `<button class="${k} ${st === k ? "on" : ""}" data-uid="${s.uid}" data-st="${k}">${STATUS[k]}</button>`).join("")}</span></td></tr>`;
+    }).join("") +
+    (extra.length ? `<tr><td colspan="6" class="muted">+ มีผู้สแกนที่ไม่อยู่ในรายชื่อห้องนี้ ${extra.length} คน</td></tr>` : "");
+
+  $$("#attTable .status-btns button").forEach(b => b.onclick = () => setStatus(b.dataset.uid, b.dataset.st));
+}
+
+async function setStatus(uid, st) {
+  const ref = doc(db, "sessions", curSess.id, "attendance", uid);
+  try {
+    if (st === "absent") await deleteDoc(ref);
+    else await setDoc(ref, { uid, status: st, method: attMap[uid]?.method === "scan" ? "scan" : "manual", time: attMap[uid]?.time || serverTimestamp() });
+  } catch (e) { toast(thError(e), "bad"); }
+}
+
+$("#allPresent").onclick = async () => {
+  const b = writeBatch(db);
+  roster.filter(s => statusOf(s.uid) === "absent").forEach(s =>
+    b.set(doc(db, "sessions", curSess.id, "attendance", s.uid), { uid: s.uid, status: "present", method: "manual", time: serverTimestamp() }));
+  await b.commit(); toast("อัปเดตแล้ว");
+};
+
+$("#exportAtt").onclick = async () => {
+  toast("กำลังรวบรวมข้อมูล...", "warn");
+  const snap = await getDocs(query(collection(db, "sessions"), where("sectionId", "==", sec)));
+  const ss = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+  const atts = await Promise.all(ss.map(s => getDocs(collection(db, "sessions", s.id, "attendance"))));
+  const maps = atts.map(a => { const m = {}; a.forEach(d => m[d.id] = d.data().status); return m; });
+  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...ss.map(s => thDate(s.date)), "มา", "สาย", "ลา", "ขาด", "% มาเรียน"];
+  const rows = roster.map(s => {
+    const sts = maps.map(m => m[s.uid] || "absent");
+    const c = k => sts.filter(x => x === k).length;
+    const pct = ss.length ? Math.round((c("present") + c("late")) / ss.length * 100) : 0;
+    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, ...sts.map(x => STATUS[x]), c("present"), c("late"), c("leave"), c("absent"), pct];
+  });
+  downloadCSV(`เช็คชื่อ_${sectionLabel(sec)}.csv`, [head, ...rows]);
+};
+
+/* ======================= คะแนน ======================= */
+function renderScores() {
+  const names = secInfo.slotNames || [];
+  const mMax = secInfo.midtermMax ?? DEFAULT_MIDTERM_MAX;
+  const slots = Array.from({ length: SLOT_COUNT }, (_, i) => i);
+  $("#scoreTable").innerHTML =
+    `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>` +
+    slots.map(i => `<th class="num"><input class="slotName" data-i="${i}" value="${esc(names[i] || "ช่อง " + (i + 1))}"><br><span class="muted">/${SLOT_MAX}</span></th>`).join("") +
+    `<th class="num">รวมเก็บ<br><span class="muted">/${SLOT_COUNT * SLOT_MAX}</span></th>
+     <th class="num">กลางภาค<br>/<input id="midMax" type="number" min="1" value="${mMax}" style="width:56px"></th><th class="num">รวม</th></tr>` +
+    roster.map(s => {
+      const sc = scoreMap[s.uid];
+      return `<tr data-uid="${s.uid}"><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>` +
+        slots.map(i => `<td class="num"><input type="number" min="0" max="${SLOT_MAX}" step="0.5" class="sv" data-i="${i}" value="${sc?.s?.[i] ?? ""}"></td>`).join("") +
+        `<td class="num sum"></td><td class="num"><input type="number" min="0" step="0.5" class="mid" value="${sc?.midterm ?? ""}"></td><td class="num tot"></td></tr>`;
+    }).join("");
+  if (!roster.length) $("#scoreTable").insertAdjacentHTML("beforeend", `<tr><td colspan="16" class="muted">ยังไม่มีนักเรียนสมัครเข้าห้องนี้</td></tr>`);
+  $$("#scoreTable tr[data-uid]").forEach(recalcRow);
+  $("#scoreTable").oninput = e => {
+    const tr = e.target.closest("tr[data-uid]"); if (tr) recalcRow(tr);
+    if (e.target.classList.contains("sv")) e.target.style.background = (+e.target.value > SLOT_MAX || +e.target.value < 0) ? "#fee2e2" : "";
+  };
+  // Enter = เลื่อนลงแถวถัดไป (กรอกเร็ว)
+  $("#scoreTable").onkeydown = e => {
+    if (e.key !== "Enter" || !e.target.matches("input.sv, input.mid")) return;
+    e.preventDefault();
+    const tr = e.target.closest("tr"), cls = e.target.classList.contains("mid") ? ".mid" : `.sv[data-i="${e.target.dataset.i}"]`;
+    tr.nextElementSibling?.querySelector(cls)?.focus();
+  };
+}
+function num(v) { return v === "" || v === null || isNaN(+v) ? null : +v; }
+function recalcRow(tr) {
+  const vals = $$(".sv", tr).map(i => num(i.value));
+  const sum = vals.reduce((a, v) => a + (v ?? 0), 0);
+  const mid = num($(".mid", tr).value);
+  $(".sum", tr).textContent = sum;
+  $(".tot", tr).textContent = sum + (mid ?? 0);
+}
+
+$("#saveScores").onclick = async () => {
+  const bad = $$("#scoreTable .sv").some(i => i.value !== "" && (+i.value < 0 || +i.value > SLOT_MAX));
+  if (bad) return toast(`มีช่องที่คะแนนเกิน ${SLOT_MAX} หรือติดลบ (ช่องสีแดง)`, "bad");
+  const b = writeBatch(db);
+  b.set(doc(db, "sections", sec), {
+    slotNames: $$(".slotName").map(i => i.value.trim()),
+    midtermMax: num($("#midMax").value) ?? DEFAULT_MIDTERM_MAX,
+  }, { merge: true });
+  $$("#scoreTable tr[data-uid]").forEach(tr => {
+    const uid = tr.dataset.uid;
+    const data = { uid, sectionId: sec, s: $$(".sv", tr).map(i => num(i.value)), midterm: num($(".mid", tr).value), updatedAt: serverTimestamp() };
+    b.set(doc(db, "scores", `${sec}_${uid}`), data);
+    scoreMap[uid] = data;
+  });
+  try {
+    await b.commit();
+    secInfo = { ...secInfo, slotNames: $$(".slotName").map(i => i.value.trim()), midtermMax: num($("#midMax").value) };
+    toast("บันทึกคะแนนแล้ว ✅");
+    loadAssignments();
+  } catch (e) { toast(thError(e), "bad"); }
+};
+
+$("#exportScores").onclick = () => {
+  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...$$(".slotName").map(i => i.value), "รวมเก็บ", "กลางภาค", "รวม"];
+  const rows = $$("#scoreTable tr[data-uid]").map(tr => {
+    const s = roster.find(x => x.uid === tr.dataset.uid);
+    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, ...$$(".sv", tr).map(i => i.value), $(".sum", tr).textContent, $(".mid", tr).value, $(".tot", tr).textContent];
+  });
+  downloadCSV(`คะแนน_${sectionLabel(sec)}.csv`, [head, ...rows]);
+};
+
+/* ======================= ภาระงาน ======================= */
+$("#asgForm").onsubmit = async e => {
+  e.preventDefault();
+  const targets = $("#as_target").value === "subject"
+    ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
+  const slotV = $("#as_slot").value;
+  const b = writeBatch(db);
+  targets.forEach(t => b.set(doc(collection(db, "assignments")), {
+    sectionId: t, title: $("#as_title").value.trim(), detail: $("#as_detail").value.trim(),
+    due: Timestamp.fromDate(new Date($("#as_due").value)), slot: slotV === "" ? null : Number(slotV), createdAt: serverTimestamp(),
+  }));
+  try { await b.commit(); e.target.reset(); toast(`แจ้งภาระงานแล้ว (${targets.length} ห้อง)`); loadAssignments(); }
+  catch (err) { toast(thError(err), "bad"); }
+};
+
+async function loadAssignments() {
+  const snap = await getDocs(query(collection(db, "assignments"), where("sectionId", "==", sec)));
+  const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.due?.toMillis?.() ?? 0) - (a.due?.toMillis?.() ?? 0));
+  const names = secInfo.slotNames || [];
+  $("#asgList").innerHTML = list.map(a => {
+    const due = a.due?.toDate?.();
+    let info = "";
+    if (a.slot !== null && a.slot !== undefined) {
+      const notSent = roster.filter(s => typeof scoreMap[s.uid]?.s?.[a.slot] !== "number");
+      info = `<div style="margin-top:6px">ส่งแล้ว <b>${roster.length - notSent.length}</b>/${roster.length} คน
+        (ผูกกับ "${esc(names[a.slot] || "ช่อง " + (a.slot + 1))}")
+        ${notSent.length ? `<button class="sm ghost copy" data-names="${esc(notSent.map(s => `${s.no}. ${s.firstName} (${s.nickname})`).join("\n"))}">📋 คัดลอกรายชื่อคนยังไม่ส่ง</button>` : ""}</div>`;
+    }
+    const st = due && due < new Date() ? "overdue" : "pending";
+    return `<div class="assign ${st}"><div class="row"><div style="flex:5">
+      <div class="t">${esc(a.title)}</div>
+      ${a.detail ? `<div style="white-space:pre-wrap;margin:4px 0">${esc(a.detail)}</div>` : ""}
+      <div class="muted">กำหนดส่ง ${due ? thDate(due, true) : "-"}</div>${info}</div>
+      <button class="sm danger del" data-id="${a.id}">ลบ</button></div></div>`;
+  }).join("") || `<p class="muted">ยังไม่มีภาระงาน</p>`;
+  $$("#asgList .del").forEach(b => b.onclick = async () => {
+    if (!confirm("ลบภาระงานนี้?")) return;
+    await deleteDoc(doc(db, "assignments", b.dataset.id)); loadAssignments();
+  });
+  $$("#asgList .copy").forEach(b => b.onclick = async () => {
+    const title = b.closest(".assign").querySelector(".t").textContent;
+    const text = `📢 ยังไม่ส่ง "${title}" (${sectionLabel(sec)})\n${b.dataset.names}\nรีบส่งด้วยนะคะ`;
+    try { await navigator.clipboard.writeText(text); toast("คัดลอกแล้ว วางใน LINE กลุ่มได้เลย"); }
+    catch (e) { prompt("คัดลอกข้อความนี้", text); }
+  });
+}
+
+/* ======================= นักเรียน ======================= */
+function renderStudents() {
+  $("#stuTitle").textContent = `${sectionLabel(sec)} — ${roster.length} คน`;
+  $("#stuTable").innerHTML = `<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th></th></tr>` +
+    roster.map(s => `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>
+      <td><button class="sm danger rm" data-uid="${s.uid}">เอาออกจากห้อง</button></td></tr>`).join("");
+  $$("#stuTable .rm").forEach(b => b.onclick = async () => {
+    const s = roster.find(x => x.uid === b.dataset.uid);
+    if (!confirm(`เอา ${fullName(s)} ออกจาก ${sectionLabel(sec)}?`)) return;
+    try { await updateDoc(doc(db, "students", s.uid), { sections: arrayRemove(sec) }); selectSection(sec); }
+    catch (e) { toast(thError(e), "bad"); }
+  });
+}
+</script>
+</body>
+</html>

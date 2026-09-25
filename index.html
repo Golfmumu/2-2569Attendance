@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบเช็คชื่อ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top"><h1>📋 ระบบเช็คชื่อ & คะแนนเก็บ</h1></header>
+<main>
+  <div class="card narrow">
+    <div class="tabs">
+      <button data-tab="login" class="active">เข้าสู่ระบบ</button>
+      <button data-tab="register">สมัครบัญชีนักเรียน</button>
+    </div>
+
+    <form id="loginForm">
+      <label>รหัสนักเรียน (ครูใช้อีเมล)</label>
+      <input id="li_id" required autocomplete="username">
+      <label>รหัสผ่าน</label>
+      <input id="li_pw" type="password" required autocomplete="current-password">
+      <p><button type="submit" style="width:100%">เข้าสู่ระบบ</button></p>
+      <p class="muted">ลืมรหัสผ่าน? แจ้งครูเพื่อรีเซ็ตบัญชี</p>
+    </form>
+
+    <form id="regForm" class="hidden">
+      <div class="grid2">
+        <div><label>รหัสนักเรียน *</label><input id="rg_id" required inputmode="numeric" pattern="[A-Za-z0-9]+" title="ตัวเลขหรือตัวอักษรอังกฤษ"></div>
+        <div><label>เลขที่ *</label><input id="rg_no" required type="number" min="1" max="99"></div>
+        <div><label>ชื่อจริง *</label><input id="rg_fn" required></div>
+        <div><label>นามสกุล *</label><input id="rg_ln" required></div>
+      </div>
+      <label>ชื่อเล่น *</label><input id="rg_nick" required>
+      <label>รายวิชา / ห้องที่เรียนกับครู * (เลือกได้หลายวิชา)</label>
+      <div class="checks" id="rg_sections"></div>
+      <div class="grid2">
+        <div><label>รหัสผ่าน * (6 ตัวขึ้นไป)</label><input id="rg_pw" type="password" minlength="6" required autocomplete="new-password"></div>
+        <div><label>ยืนยันรหัสผ่าน *</label><input id="rg_pw2" type="password" minlength="6" required autocomplete="new-password"></div>
+      </div>
+      <p><button type="submit" style="width:100%">สมัครบัญชี</button></p>
+    </form>
+  </div>
+</main>
+
+<script type="module">
+import { auth, db, $, $$, toast, esc, toEmail, isTeacherEmail, thError, SECTIONS,
+  signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged,
+  doc, setDoc, serverTimestamp } from "./js/common.js";
+
+// อนุญาตให้เด้งกลับไปเฉพาะหน้า checkin.html ในเว็บเดียวกันเท่านั้น
+function nextUrl() {
+  const n = new URLSearchParams(location.search).get("next");
+  if (n && /^checkin\.html\?[A-Za-z0-9=&_\-]+$/.test(n)) return n;
+  return null;
+}
+function goHome(user) {
+  const n = nextUrl();
+  if (n && !isTeacherEmail(user.email)) return location.replace(n);
+  location.replace(isTeacherEmail(user.email) ? "teacher.html" : "student.html");
+}
+
+let registering = false;
+onAuthStateChanged(auth, u => { if (u && !registering) goHome(u); });
+
+$("#rg_sections").innerHTML = SECTIONS.map(s =>
+  `<label><input type="checkbox" value="${esc(s.id)}"> ${esc(s.subject)} — ${esc(s.room)}</label>`).join("");
+
+$$(".tabs button").forEach(b => b.onclick = () => {
+  $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
+  $("#loginForm").classList.toggle("hidden", b.dataset.tab !== "login");
+  $("#regForm").classList.toggle("hidden", b.dataset.tab !== "register");
+});
+if (nextUrl()) toast("เข้าสู่ระบบก่อน แล้วระบบจะพาไปเช็คชื่อ", "warn");
+
+$("#loginForm").onsubmit = async e => {
+  e.preventDefault();
+  const btn = e.submitter; btn.disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, toEmail($("#li_id").value), $("#li_pw").value);
+  } catch (err) { toast(thError(err), "bad"); btn.disabled = false; }
+};
+
+$("#regForm").onsubmit = async e => {
+  e.preventDefault();
+  const sections = $$("#rg_sections input:checked").map(i => i.value);
+  if (!sections.length) return toast("เลือกรายวิชาอย่างน้อย 1 วิชา", "bad");
+  if ($("#rg_pw").value !== $("#rg_pw2").value) return toast("รหัสผ่านไม่ตรงกัน", "bad");
+  const sid = $("#rg_id").value.trim();
+  if (sid.includes("@")) return toast("ใช้รหัสนักเรียน ไม่ใช่อีเมล", "bad");
+  const btn = e.submitter; btn.disabled = true; registering = true;
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, toEmail(sid), $("#rg_pw").value);
+    await setDoc(doc(db, "students", cred.user.uid), {
+      studentId: sid,
+      no: Number($("#rg_no").value),
+      firstName: $("#rg_fn").value.trim(),
+      lastName: $("#rg_ln").value.trim(),
+      nickname: $("#rg_nick").value.trim(),
+      sections,
+      createdAt: serverTimestamp(),
+    });
+    toast("สมัครสำเร็จ!");
+    goHome(cred.user);
+  } catch (err) { toast(thError(err), "bad"); btn.disabled = false; registering = false; }
+};
+</script>
+</body>
+</html>
