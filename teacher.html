@@ -36,7 +36,6 @@
         <div class="qr-box">
           <div id="qrState"></div>
           <div id="qr"></div>
-          <div class="bar"><div id="qrBar"></div></div>
           <div class="row" style="justify-content:center">
             <button id="fullBtn">⛶ เต็มจอ</button>
             <button id="toggleOpen" class="ghost">ปิดรับเช็คชื่อ</button>
@@ -98,7 +97,6 @@
 <div class="qr-full hidden" id="qrFull">
   <h2 id="fullTitle"></h2>
   <div id="qrBig"></div>
-  <div class="bar"><div id="qrBar2"></div></div>
   <div style="font-size:1.4rem">สแกนแล้ว <b id="fullCount">0</b> คน</div>
   <button id="exitFull">ออกจากโหมดเต็มจอ</button>
 </div>
@@ -184,7 +182,6 @@ function openSession(id) {
     $("#qrCard").classList.toggle("hidden", !curSess.open);
     $("#toggleOpen").textContent = curSess.open ? "ปิดรับเช็คชื่อ" : "เปิดรับอีกครั้ง";
     drawQR();
-    if (first) setupRotation();
     renderAttendance();
   });
   unsubAtt = onSnapshot(collection(db, "sessions", id, "attendance"), snap => {
@@ -205,20 +202,7 @@ function drawQR() {
   const big = Math.min(innerWidth, innerHeight) - 220;
   if (!qrBig) qrBig = new QRCode($("#qrBig"), { text: url, width: big, height: big, correctLevel: QRCode.CorrectLevel.M });
   else qrBig.makeCode(url);
-  $("#qrState").innerHTML = `<span class="pill present">● เปิดรับเช็คชื่อ</span> <span class="muted">QR เปลี่ยนทุก ${QR_ROTATE_SECONDS} วินาที</span>`;
-}
-
-function setupRotation() {
-  let left = QR_ROTATE_SECONDS;
-  const bar = () => { const w = (left / QR_ROTATE_SECONDS) * 100 + "%"; $("#qrBar").style.width = w; $("#qrBar2").style.width = w; };
-  bar();
-  barTimer = setInterval(() => { left = Math.max(0, left - 1); bar(); }, 1000);
-  rotTimer = setInterval(async () => {
-    left = QR_ROTATE_SECONDS; bar();
-    if (!curSess?.open || document.hidden) return;
-    try { await updateDoc(doc(db, "sessions", curSess.id), { prevToken: curSess.token, token: randomToken() }); }
-    catch (e) { console.warn(e); }
-  }, QR_ROTATE_SECONDS * 1000);
+  $("#qrState").innerHTML = `<span class="pill present">● เปิดรับเช็คชื่อ</span>`;
 }
 
 $("#toggleOpen").onclick = async () => {
