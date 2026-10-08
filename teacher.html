@@ -289,16 +289,16 @@ function renderAttendance() {
   // นักเรียนที่สแกนแต่ไม่อยู่ในรายชื่อห้อง (กรณีครูลบออกจากห้องไปแล้ว)
   const extra = Object.keys(attMap).filter(uid => !roster.find(s => s.uid === uid));
 
-  $("#attTable").innerHTML = `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>วิชาที่สมัคร</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th></tr>` +
+  $("#attTable").innerHTML = `<tr><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>วิชาที่สมัคร</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th></tr>` +
     roster.map(s => {
       const a = attMap[s.uid], st = statusOf(s.uid);
-      return `<tr class="${s.uid in pending ? "dirty" : ""}"><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td>${subjectsOf(s)}</td>
+      return `<tr class="${s.uid in pending ? "dirty" : ""}"><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td>${subjectsOf(s)}</td>
         <td>${a?.time ? thDate(a.time, true).split(" ").slice(-2).join(" ") : "-"}</td>
         <td>${a ? (a.method === "scan" ? "📱 สแกน" : "✏️ ครู") : "-"}</td>
         <td><span class="status-btns">${Object.keys(STATUS).map(k =>
           `<button class="${k} ${st === k ? "on" : ""}" data-uid="${s.uid}" data-st="${k}">${STATUS[k]}</button>`).join("")}</span></td></tr>`;
     }).join("") +
-    (extra.length ? `<tr><td colspan="7" class="muted">+ มีผู้สแกนที่ไม่อยู่ในรายชื่อห้องนี้ ${extra.length} คน</td></tr>` : "");
+    (extra.length ? `<tr><td colspan="8" class="muted">+ มีผู้สแกนที่ไม่อยู่ในรายชื่อห้องนี้ ${extra.length} คน</td></tr>` : "");
 
   $$("#attTable .status-btns button").forEach(b => b.onclick = () => setStatus(b.dataset.uid, b.dataset.st));
   renderSaveInfo();
@@ -387,9 +387,9 @@ async function loadReport() {
     `<div class="stat absent"><b>${low}</b>คน มาเรียน &lt; 80%</div>`;
   if (!ss.length) { $("#repTable").innerHTML = `<tr><td class="muted">ยังไม่มีรอบเช็คชื่อในช่วงนี้</td></tr>`; return; }
   $("#repTable").innerHTML =
-    `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>${ss.map(x => `<th class="c">${esc(x.label).replace(" (", "<br>(")}</th>`).join("")}
+    `<tr><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>${ss.map(x => `<th class="c">${esc(x.label).replace(" (", "<br>(")}</th>`).join("")}
       <th class="c">มา</th><th class="c">สาย</th><th class="c">ลา</th><th class="c">ขาด</th><th class="c">% มาเรียน</th></tr>` +
-    rows.map(r => `<tr class="${r.pct < 80 ? "low" : ""}"><td class="num">${esc(r.st.no)}</td><td>${esc(fullName(r.st))}</td><td>${esc(r.st.nickname)}</td>
+    rows.map(r => `<tr class="${r.pct < 80 ? "low" : ""}"><td class="num">${esc(r.st.no)}</td><td>${esc(r.st.studentId)}</td><td>${esc(fullName(r.st))}</td><td>${esc(r.st.nickname)}</td>
       ${r.sts.map(k => `<td class="c ${SHORT_CLS[k]}">${SHORT[k]}</td>`).join("")}
       <td class="c">${r.c.present}</td><td class="c">${r.c.late}</td><td class="c">${r.c.leave}</td><td class="c">${r.c.absent}</td><td class="c"><b>${r.pct}%</b></td></tr>`).join("");
 }
@@ -412,17 +412,17 @@ function renderScores() {
   const mMax = secInfo.midtermMax ?? DEFAULT_MIDTERM_MAX;
   const slots = Array.from({ length: SLOT_COUNT }, (_, i) => i);
   $("#scoreTable").innerHTML =
-    `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>` +
+    `<tr><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>` +
     slots.map(i => `<th class="num"><input class="slotName" data-i="${i}" value="${esc(names[i] || "ช่อง " + (i + 1))}"><br><span class="muted">/${SLOT_MAX}</span></th>`).join("") +
     `<th class="num">รวมเก็บ<br><span class="muted">/${SLOT_COUNT * SLOT_MAX}</span></th>
      <th class="num">กลางภาค<br>/<input id="midMax" type="number" min="1" value="${mMax}" style="width:56px"></th><th class="num">รวม</th></tr>` +
     roster.map(s => {
       const sc = scoreMap[s.uid];
-      return `<tr data-uid="${s.uid}"><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>` +
+      return `<tr data-uid="${s.uid}"><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>` +
         slots.map(i => `<td class="num"><input type="number" min="0" max="${SLOT_MAX}" step="0.5" class="sv" data-i="${i}" value="${sc?.s?.[i] ?? ""}"></td>`).join("") +
         `<td class="num sum"></td><td class="num"><input type="number" min="0" step="0.5" class="mid" value="${sc?.midterm ?? ""}"></td><td class="num tot"></td></tr>`;
     }).join("");
-  if (!roster.length) $("#scoreTable").insertAdjacentHTML("beforeend", `<tr><td colspan="16" class="muted">ยังไม่มีนักเรียนสมัครเข้าห้องนี้</td></tr>`);
+  if (!roster.length) $("#scoreTable").insertAdjacentHTML("beforeend", `<tr><td colspan="17" class="muted">ยังไม่มีนักเรียนสมัครเข้าห้องนี้</td></tr>`);
   $$("#scoreTable tr[data-uid]").forEach(recalcRow);
   $("#scoreTable").oninput = e => {
     const tr = e.target.closest("tr[data-uid]"); if (tr) recalcRow(tr);
