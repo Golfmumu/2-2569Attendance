@@ -10,6 +10,13 @@
 <style>
   #attTable tr.dirty td { background: #fff7d6; }
   #attTable tr.dirty td:first-child { box-shadow: inset 4px 0 0 #d97706; }
+  #repTable td.c, #repTable th.c { text-align: center; padding: 6px 4px; }
+  #repTable th.c { font-size: .8rem; line-height: 1.2; }
+  #repTable .m { color: #16a34a; font-weight: 700; }
+  #repTable .s { color: #d97706; font-weight: 700; }
+  #repTable .l { color: #2563eb; font-weight: 700; }
+  #repTable .x { color: #dc2626; font-weight: 700; }
+  #repTable tr.low td { background: #fee2e2; }
   #saveAtt.need { background: #d97706; animation: pulse 1.2s infinite; }
   @keyframes pulse { 50% { opacity: .75; } }
 </style>
@@ -25,6 +32,7 @@
     <button data-tab="att" class="active">เช็คชื่อ</button>
     <button data-tab="score">คะแนนเก็บ</button>
     <button data-tab="work">ภาระงาน</button>
+    <button data-tab="rep">สรุปการมาเรียน</button>
     <button data-tab="stu">รายชื่อนักเรียน</button>
   </div>
 
@@ -34,7 +42,7 @@
       <div class="row">
         <div><label>รอบเช็คชื่อ</label><select id="sessSel"></select></div>
         <button id="newSess">➕ เปิด QR เช็คชื่อใหม่ (วันนี้)</button>
-        <button id="exportAtt" class="ghost">⬇️ สรุปการมาเรียน (CSV)</button>
+        <button id="exportAtt" class="ghost">📊 ไปหน้าสรุปการมาเรียน</button>
       </div>
     </div>
     <div id="sessArea" class="hidden">
@@ -93,6 +101,25 @@
   </section>
 
   <!-- ============ นักเรียน ============ -->
+  <!-- ============ สรุปการมาเรียน ============ -->
+  <section id="tab-rep" class="hidden">
+    <div class="card no-print">
+      <div class="row">
+        <div><label>ตั้งแต่วันที่ (เว้นว่าง = ทั้งหมด)</label><input type="date" id="repFrom"></div>
+        <div><label>ถึงวันที่</label><input type="date" id="repTo"></div>
+        <button id="repLoad" class="ghost">🔄 แสดงผล</button>
+        <button id="repDownload">⬇️ ดาวน์โหลด (Excel/CSV)</button>
+        <button id="repPrint" class="ghost">🖨️ พิมพ์</button>
+      </div>
+      <p class="muted" style="margin:10px 0 0">ม = มา · ส = สาย · ล = ลา · ข = ขาด · % มาเรียน นับ มา + สาย · แถวสีแดง = มาเรียนต่ำกว่า 80%</p>
+    </div>
+    <div class="card">
+      <h2 id="repTitle"></h2>
+      <div class="stats" id="repStats"></div>
+      <div class="table-wrap"><table id="repTable"></table></div>
+    </div>
+  </section>
+
   <section id="tab-stu" class="hidden">
     <div class="card">
       <h2 id="stuTitle"></h2>
@@ -123,7 +150,8 @@ let pending = {}; // การเปลี่ยนสถานะที่ย�
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["att", "score", "work", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["att", "score", "work", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  if (b.dataset.tab === "rep") loadReport();
 });
 $("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
 $("#as_slot").innerHTML = `<option value="">ไม่ผูก</option>` + Array.from({ length: SLOT_COUNT }, (_, i) => `<option value="${i}">ช่องที่ ${i + 1}</option>`).join("");
@@ -152,6 +180,7 @@ async function selectSection(id) {
   secInfo = si.exists() ? si.data() : {};
   scoreMap = {}; sc.forEach(d => scoreMap[d.data().uid] = d.data());
   renderStudents(); renderScores(); loadAssignments(); loadSessions();
+  if (!$("#tab-rep").classList.contains("hidden")) loadReport();
 }
 
 /* ======================= เช็คชื่อ ======================= */
@@ -314,20 +343,67 @@ function confirmDiscard() {
 }
 window.addEventListener("beforeunload", e => { if (hasPending()) { e.preventDefault(); e.returnValue = ""; } });
 
-$("#exportAtt").onclick = async () => {
-  toast("กำลังรวบรวมข้อมูล...", "warn");
+$("#exportAtt").onclick = () => $('.tabs button[data-tab="rep"]').click();
+
+/* ======================= สรุปการมาเรียน ======================= */
+const SHORT = { present: "ม", late: "ส", leave: "ล", absent: "ข" };
+const SHORT_CLS = { present: "m", late: "s", leave: "l", absent: "x" };
+let report = null;
+
+async function buildReport() {
+  const from = $("#repFrom").value, to = $("#repTo").value;
   const snap = await getDocs(query(collection(db, "sessions"), where("sectionId", "==", sec)));
-  const ss = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
-  const atts = await Promise.all(ss.map(s => getDocs(collection(db, "sessions", s.id, "attendance"))));
-  const maps = atts.map(a => { const m = {}; a.forEach(d => m[d.id] = d.data().status); return m; });
-  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...ss.map(s => thDate(s.date)), "มา", "สาย", "ลา", "ขาด", "% มาเรียน"];
-  const rows = roster.map(s => {
-    const sts = maps.map(m => m[s.uid] || "absent");
-    const c = k => sts.filter(x => x === k).length;
-    const pct = ss.length ? Math.round((c("present") + c("late")) / ss.length * 100) : 0;
-    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, ...sts.map(x => STATUS[x]), c("present"), c("late"), c("leave"), c("absent"), pct];
+  const ss = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    .filter(x => (!from || x.date >= from) && (!to || x.date <= to))
+    .sort((a, b) => a.date.localeCompare(b.date) || (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+  // ป้ายหัวคอลัมน์: วันที่ (+ รอบที่ ถ้าวันเดียวมีหลายรอบ)
+  ss.forEach((x, i) => {
+    const same = ss.filter(y => y.date === x.date);
+    x.label = thDate(x.date) + (same.length > 1 ? ` (รอบ ${same.indexOf(x) + 1})` : "");
   });
-  downloadCSV(`เช็คชื่อ_${sectionLabel(sec)}.csv`, [head, ...rows]);
+  const atts = await Promise.all(ss.map(x => getDocs(collection(db, "sessions", x.id, "attendance"))));
+  const maps = atts.map(a => { const m = {}; a.forEach(d => m[d.id] = d.data().status); return m; });
+  const rows = roster.map(st => {
+    const sts = maps.map(m => m[st.uid] || "absent");
+    const c = { present: 0, late: 0, leave: 0, absent: 0 };
+    sts.forEach(k => c[k] = (c[k] || 0) + 1);
+    const pct = ss.length ? Math.round((c.present + c.late) / ss.length * 100) : 0;
+    return { st, sts, c, pct };
+  });
+  return { ss, rows, from, to };
+}
+
+async function loadReport() {
+  $("#repTitle").textContent = `${sectionLabel(sec)} — กำลังโหลด...`;
+  $("#repTable").innerHTML = ""; $("#repStats").innerHTML = "";
+  try { report = await buildReport(); } catch (e) { toast(thError(e), "bad"); return; }
+  const { ss, rows, from, to } = report;
+  const range = from || to ? ` (${from ? thDate(from) : "เริ่มต้น"} – ${to ? thDate(to) : "ปัจจุบัน"})` : "";
+  $("#repTitle").textContent = `สรุปการมาเรียน ${sectionLabel(sec)}${range} · ${ss.length} ครั้ง · ${rows.length} คน`;
+  const tot = { present: 0, late: 0, leave: 0, absent: 0 };
+  rows.forEach(r => Object.keys(tot).forEach(k => tot[k] += r.c[k] || 0));
+  const low = rows.filter(r => ss.length && r.pct < 80).length;
+  $("#repStats").innerHTML = Object.keys(STATUS).map(k => `<div class="stat ${k}"><b>${tot[k]}</b>${STATUS[k]} (ครั้ง)</div>`).join("") +
+    `<div class="stat absent"><b>${low}</b>คน มาเรียน &lt; 80%</div>`;
+  if (!ss.length) { $("#repTable").innerHTML = `<tr><td class="muted">ยังไม่มีรอบเช็คชื่อในช่วงนี้</td></tr>`; return; }
+  $("#repTable").innerHTML =
+    `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>${ss.map(x => `<th class="c">${esc(x.label).replace(" (", "<br>(")}</th>`).join("")}
+      <th class="c">มา</th><th class="c">สาย</th><th class="c">ลา</th><th class="c">ขาด</th><th class="c">% มาเรียน</th></tr>` +
+    rows.map(r => `<tr class="${r.pct < 80 ? "low" : ""}"><td class="num">${esc(r.st.no)}</td><td>${esc(fullName(r.st))}</td><td>${esc(r.st.nickname)}</td>
+      ${r.sts.map(k => `<td class="c ${SHORT_CLS[k]}">${SHORT[k]}</td>`).join("")}
+      <td class="c">${r.c.present}</td><td class="c">${r.c.late}</td><td class="c">${r.c.leave}</td><td class="c">${r.c.absent}</td><td class="c"><b>${r.pct}%</b></td></tr>`).join("");
+}
+
+$("#repLoad").onclick = loadReport;
+$("#repPrint").onclick = () => window.print();
+$("#repDownload").onclick = async () => {
+  if (!report) await loadReport();
+  if (!report) return;
+  const { ss, rows } = report;
+  const head = ["เลขที่", "รหัสนักเรียน", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...ss.map(x => x.label), "มา", "สาย", "ลา", "ขาด", "% มาเรียน"];
+  const body = rows.map(r => [r.st.no, r.st.studentId, r.st.firstName, r.st.lastName, r.st.nickname,
+    ...r.sts.map(k => STATUS[k]), r.c.present, r.c.late, r.c.leave, r.c.absent, r.pct]);
+  downloadCSV(`สรุปการมาเรียน_${sectionLabel(sec)}_${todayStr()}.csv`, [[`สรุปการมาเรียน ${sectionLabel(sec)}`], head, ...body]);
 };
 
 /* ======================= คะแนน ======================= */
