@@ -53,7 +53,7 @@ if (!sessionId || !token) {
         <div class="name">${esc(fullName(me))}</div>
         <div>ชื่อเล่น <b>${esc(me.nickname)}</b> · เลขที่ ${esc(me.no)} · รหัส ${esc(me.studentId)}</div>
         <p class="alert warn" style="margin-top:16px;text-align:left">
-          ⚠️ ห้ามสแกนแทนเพื่อน — 1 เครื่องเช็คชื่อได้ 1 บัญชีต่อคาบ และ QR เปลี่ยนทุกไม่กี่วินาที</p>
+          ⚠️ ห้ามสแกนแทนเพื่อน — 1 เครื่องเช็คชื่อได้ 1 บัญชีต่อคาบ</p>
         <button id="go" style="width:100%;font-size:1.2rem;padding:14px">✅ ยืนยันเช็คชื่อ</button>
         <p class="muted">ถ้าไม่ใช่ชื่อคุณ ให้กด "ออกจากระบบ" ด้านบน</p>
       </div>`;
@@ -74,7 +74,7 @@ if (!sessionId || !token) {
         if ((e.code || "").includes("permission-denied")) {
           box.insertAdjacentHTML("afterbegin", `<div class="alert bad">
             เช็คชื่อไม่สำเร็จ อาจเป็นเพราะ:<br>
-            • QR หมดอายุแล้ว → <b>สแกน QR ใหม่ที่หน้าห้อง</b><br>
+            • QR ไม่ใช่ของคาบนี้ → <b>สแกน QR ใหม่ที่หน้าห้อง</b><br>
             • ครูปิดรับเช็คชื่อแล้ว<br>
             • คุณไม่ได้ลงทะเบียนวิชา/ห้องนี้ (แก้ได้ที่หน้านักเรียน)<br>
             • เครื่องนี้ถูกใช้เช็คชื่อบัญชีอื่นในคาบนี้ไปแล้ว</div>`);
