@@ -7,6 +7,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  #attTable tr.dirty td { background: #fff7d6; }
+  #attTable tr.dirty td:first-child { box-shadow: inset 4px 0 0 #d97706; }
+  #saveAtt.need { background: #d97706; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .75; } }
+</style>
 </head>
 <body>
 <header class="top">
@@ -45,8 +51,10 @@
       <div class="card">
         <h2 id="sessTitle"></h2>
         <div class="stats" id="attStats"></div>
-        <div class="row no-print" style="margin-bottom:10px">
+        <div class="row no-print save-bar" style="margin-bottom:10px;align-items:center">
           <button class="sm ghost" id="allPresent">ทุกคนที่ยังขาด → มา</button>
+          <div id="saveInfo" class="muted" style="flex:1 1 220px"></div>
+          <button id="saveAtt">💾 บันทึกการเช็คชื่อ</button>
         </div>
         <div class="table-wrap"><table id="attTable"></table></div>
       </div>
@@ -110,6 +118,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, s
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
 let scoreMap = {}, secInfo = {};
+let pending = {}; // การเปลี่ยนสถานะที่ยังไม่ได้กดบันทึก
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
@@ -125,7 +134,11 @@ onAuthStateChanged(auth, u => {
   try { const last = localStorage.getItem("cc_sec"); if (last && sectionById(last)) $("#secSel").value = last; } catch (e) {}
   selectSection($("#secSel").value);
 });
-$("#secSel").onchange = e => { try { localStorage.setItem("cc_sec", e.target.value); } catch (x) {} selectSection(e.target.value); };
+let lastSec = "";
+$("#secSel").onfocus = e => { lastSec = e.target.value; };
+$("#secSel").onchange = e => {
+  if (!confirmDiscard()) { e.target.value = lastSec; return; }
+  lastSec = e.target.value; try { localStorage.setItem("cc_sec", e.target.value); } catch (x) {} selectSection(e.target.value); };
 
 async function selectSection(id) {
   sec = id;
@@ -150,9 +163,17 @@ async function loadSessions(selectId) {
     `<option value="${s.id}">${thDate(s.date)} · รอบ ${sessions.filter(x => x.date === s.date && (x.createdAt?.toMillis?.() ?? 0) <= (s.createdAt?.toMillis?.() ?? 0)).length}${s.open ? " (เปิดอยู่)" : ""}</option>`).join("");
   if (selectId) { $("#sessSel").value = selectId; openSession(selectId); }
 }
-$("#sessSel").onchange = e => e.target.value ? openSession(e.target.value) : stopSession();
+let lastSessVal = "";
+$("#sessSel").onfocus = e => { lastSessVal = e.target.value; };
+$("#sessSel").onchange = e => {
+  if (!confirmDiscard()) { e.target.value = lastSessVal; return; }
+  lastSessVal = e.target.value;
+  e.target.value ? openSession(e.target.value) : stopSession();
+};
 
 $("#newSess").onclick = async () => {
+  if (!confirmDiscard()) return;
+  pending = {};
   $("#newSess").disabled = true;
   try {
     const ref = await addDoc(collection(db, "sessions"), {
@@ -166,7 +187,7 @@ $("#newSess").onclick = async () => {
 function stopSession() {
   unsubAtt?.(); unsubSess?.(); unsubAtt = unsubSess = null;
   clearInterval(rotTimer); clearInterval(barTimer);
-  curSess = null; attMap = {};
+  curSess = null; attMap = {}; pending = {};
   $("#sessArea").classList.add("hidden");
   $("#qrFull").classList.add("hidden");
 }
@@ -212,7 +233,22 @@ $("#toggleOpen").onclick = async () => {
 $("#fullBtn").onclick = () => { $("#qrFull").classList.remove("hidden"); document.documentElement.requestFullscreen?.().catch(() => {}); };
 $("#exitFull").onclick = () => { $("#qrFull").classList.add("hidden"); if (document.fullscreenElement) document.exitFullscreen(); };
 
-function statusOf(uid) { return attMap[uid]?.status || "absent"; }
+function subjectsOf(s) {
+  return (s.sections || []).map(id => `<div>${esc(sectionLabel(id))}</div>`).join("") || "-";
+}
+
+function savedStatus(uid) { return attMap[uid]?.status || "absent"; }
+function statusOf(uid) { return pending[uid] ?? savedStatus(uid); }
+function hasPending() { return Object.keys(pending).length > 0; }
+
+function renderSaveInfo() {
+  const n = Object.keys(pending).length;
+  const last = curSess?.savedAt?.toDate ? `บันทึกล่าสุด ${thDate(curSess.savedAt, true)}` : "ยังไม่เคยบันทึกรอบนี้";
+  $("#saveInfo").innerHTML = n
+    ? `<b style="color:#b45309">⚠️ มีการเปลี่ยนแปลง ${n} คน ยังไม่บันทึก</b> · ${last}`
+    : `✅ ${last}`;
+  $("#saveAtt").classList.toggle("need", n > 0);
+}
 
 function renderAttendance() {
   if (!curSess) return;
@@ -224,34 +260,59 @@ function renderAttendance() {
   // นักเรียนที่สแกนแต่ไม่อยู่ในรายชื่อห้อง (กรณีครูลบออกจากห้องไปแล้ว)
   const extra = Object.keys(attMap).filter(uid => !roster.find(s => s.uid === uid));
 
-  $("#attTable").innerHTML = `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th></tr>` +
+  $("#attTable").innerHTML = `<tr><th>เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>วิชาที่สมัคร</th><th>เวลา</th><th>วิธี</th><th>สถานะ</th></tr>` +
     roster.map(s => {
       const a = attMap[s.uid], st = statusOf(s.uid);
-      return `<tr><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>
+      return `<tr class="${s.uid in pending ? "dirty" : ""}"><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td>${subjectsOf(s)}</td>
         <td>${a?.time ? thDate(a.time, true).split(" ").slice(-2).join(" ") : "-"}</td>
         <td>${a ? (a.method === "scan" ? "📱 สแกน" : "✏️ ครู") : "-"}</td>
         <td><span class="status-btns">${Object.keys(STATUS).map(k =>
           `<button class="${k} ${st === k ? "on" : ""}" data-uid="${s.uid}" data-st="${k}">${STATUS[k]}</button>`).join("")}</span></td></tr>`;
     }).join("") +
-    (extra.length ? `<tr><td colspan="6" class="muted">+ มีผู้สแกนที่ไม่อยู่ในรายชื่อห้องนี้ ${extra.length} คน</td></tr>` : "");
+    (extra.length ? `<tr><td colspan="7" class="muted">+ มีผู้สแกนที่ไม่อยู่ในรายชื่อห้องนี้ ${extra.length} คน</td></tr>` : "");
 
   $$("#attTable .status-btns button").forEach(b => b.onclick = () => setStatus(b.dataset.uid, b.dataset.st));
+  renderSaveInfo();
 }
 
-async function setStatus(uid, st) {
-  const ref = doc(db, "sessions", curSess.id, "attendance", uid);
-  try {
-    if (st === "absent") await deleteDoc(ref);
-    else await setDoc(ref, { uid, status: st, method: attMap[uid]?.method === "scan" ? "scan" : "manual", time: attMap[uid]?.time || serverTimestamp() });
-  } catch (e) { toast(thError(e), "bad"); }
+// กดปุ่มสถานะ = เปลี่ยนบนหน้าจอก่อน ยังไม่ลงฐานข้อมูลจนกว่าจะกด "บันทึก"
+function setStatus(uid, st) {
+  if (st === savedStatus(uid)) delete pending[uid];
+  else pending[uid] = st;
+  renderAttendance();
 }
 
-$("#allPresent").onclick = async () => {
-  const b = writeBatch(db);
-  roster.filter(s => statusOf(s.uid) === "absent").forEach(s =>
-    b.set(doc(db, "sessions", curSess.id, "attendance", s.uid), { uid: s.uid, status: "present", method: "manual", time: serverTimestamp() }));
-  await b.commit(); toast("อัปเดตแล้ว");
+$("#allPresent").onclick = () => {
+  roster.filter(s => statusOf(s.uid) === "absent").forEach(s => setStatus(s.uid, "present"));
+  renderAttendance();
 };
+
+$("#saveAtt").onclick = async () => {
+  if (!curSess) return;
+  const btn = $("#saveAtt"); btn.disabled = true;
+  const b = writeBatch(db);
+  Object.entries(pending).forEach(([uid, st]) => {
+    const ref = doc(db, "sessions", curSess.id, "attendance", uid);
+    if (st === "absent") b.delete(ref);
+    else b.set(ref, { uid, status: st, method: attMap[uid]?.method === "scan" ? "scan" : "manual", time: attMap[uid]?.time || serverTimestamp() });
+  });
+  const counts = { present: 0, late: 0, leave: 0, absent: 0 };
+  roster.forEach(s => counts[statusOf(s.uid)]++);
+  b.update(doc(db, "sessions", curSess.id), { savedAt: serverTimestamp(), summary: counts });
+  try {
+    await b.commit();
+    pending = {};
+    toast(`บันทึกแล้ว ✅ มา ${counts.present} · สาย ${counts.late} · ลา ${counts.leave} · ขาด ${counts.absent}`);
+    renderAttendance();
+  } catch (e) { toast(thError(e), "bad"); }
+  btn.disabled = false;
+};
+
+// กันลืมกดบันทึก
+function confirmDiscard() {
+  return !hasPending() || confirm("มีการเปลี่ยนแปลงการเช็คชื่อที่ยังไม่ได้บันทึก ต้องการทิ้งการเปลี่ยนแปลงหรือไม่?");
+}
+window.addEventListener("beforeunload", e => { if (hasPending()) { e.preventDefault(); e.returnValue = ""; } });
 
 $("#exportAtt").onclick = async () => {
   toast("กำลังรวบรวมข้อมูล...", "warn");
@@ -389,8 +450,8 @@ async function loadAssignments() {
 /* ======================= นักเรียน ======================= */
 function renderStudents() {
   $("#stuTitle").textContent = `${sectionLabel(sec)} — ${roster.length} คน`;
-  $("#stuTable").innerHTML = `<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th></th></tr>` +
-    roster.map(s => `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>
+  $("#stuTable").innerHTML = `<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>วิชาที่สมัคร</th><th></th></tr>` +
+    roster.map(s => `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td>${subjectsOf(s)}</td>
       <td><button class="sm danger rm" data-uid="${s.uid}">เอาออกจากห้อง</button></td></tr>`).join("");
   $$("#stuTable .rm").forEach(b => b.onclick = async () => {
     const s = roster.find(x => x.uid === b.dataset.uid);
