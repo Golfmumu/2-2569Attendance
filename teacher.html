@@ -83,6 +83,14 @@
 
   <!-- ============ ภาระงาน ============ -->
   <section id="tab-work" class="hidden">
+    <div class="card" id="lineCard">
+      <div class="row" style="align-items:center">
+        <h2 style="margin:0;flex:1 1 auto">💬 LINE กลุ่มของห้องนี้</h2>
+        <button class="sm ghost" id="lineRefresh" type="button">รีเฟรช</button>
+      </div>
+      <div id="lineStatus" class="muted" style="margin-top:8px">กำลังโหลด…</div>
+      <div id="lineCode" class="alert ok hidden" style="margin:10px 0 0"></div>
+    </div>
     <div class="card">
       <h2>📢 แจ้งภาระงานใหม่</h2>
       <form id="asgForm">
@@ -93,6 +101,10 @@
           <div><label>ผูกกับช่องคะแนน (ใช้ดูว่าใครส่งแล้ว)</label><select id="as_slot"></select></div>
           <div><label>แจ้งไปที่</label>
             <select id="as_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
+        </div>
+        <div class="checks lineOpt">
+          <label><input type="checkbox" id="as_line"> ส่งแจ้งเข้า LINE กลุ่มทันที</label>
+          <label><input type="checkbox" id="as_remind"> เตือนใน LINE กลุ่ม 1 วันก่อนครบกำหนด (ตอนเช้า)</label>
         </div>
         <p><button type="submit">แจ้งภาระงาน</button></p>
       </form>
@@ -140,7 +152,7 @@
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, sectionById, randomToken, todayStr, downloadCSV,
   isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
-  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove } from "./js/common.js";
+  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi } from "./js/common.js";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
@@ -179,7 +191,8 @@ async function selectSection(id) {
   roster = stu.docs.map(d => ({ uid: d.id, ...d.data() })).sort((a, b) => (a.no || 0) - (b.no || 0));
   secInfo = si.exists() ? si.data() : {};
   scoreMap = {}; sc.forEach(d => scoreMap[d.data().uid] = d.data());
-  renderStudents(); renderScores(); loadAssignments(); loadSessions();
+  lineState = {};
+  renderStudents(); renderScores(); loadAssignments(); loadSessions(); loadLineStatus();
   if (!$("#tab-rep").classList.contains("hidden")) loadReport();
 }
 
@@ -477,50 +490,159 @@ $("#exportScores").onclick = () => {
 };
 
 /* ======================= ภาระงาน ======================= */
+const LINE_ON = !!LINE_API_URL;
+let lineState = {}, asgList = [];
+if (!LINE_ON) $$("#lineCard, .lineOpt").forEach(el => el.classList.add("hidden"));
+const studentLink = () => new URL("student.html", location.href).href;
+
 $("#asgForm").onsubmit = async e => {
   e.preventDefault();
   const targets = $("#as_target").value === "subject"
     ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
   const slotV = $("#as_slot").value;
+  const title = $("#as_title").value.trim(), detail = $("#as_detail").value.trim();
+  const dueDate = new Date($("#as_due").value);
+  const announce = $("#as_line").checked, remind = $("#as_remind").checked;
+  const refs = targets.map(t => ({ t, ref: doc(collection(db, "assignments")) }));
   const b = writeBatch(db);
-  targets.forEach(t => b.set(doc(collection(db, "assignments")), {
-    sectionId: t, title: $("#as_title").value.trim(), detail: $("#as_detail").value.trim(),
-    due: Timestamp.fromDate(new Date($("#as_due").value)), slot: slotV === "" ? null : Number(slotV), createdAt: serverTimestamp(),
+  refs.forEach(({ t, ref }) => b.set(ref, {
+    sectionId: t, title, detail,
+    due: Timestamp.fromDate(dueDate), slot: slotV === "" ? null : Number(slotV), createdAt: serverTimestamp(),
   }));
-  try { await b.commit(); e.target.reset(); toast(`แจ้งภาระงานแล้ว (${targets.length} ห้อง)`); loadAssignments(); }
-  catch (err) { toast(thError(err), "bad"); }
+  try { await b.commit(); e.target.reset(); setLineDefaults(); toast(`แจ้งภาระงานแล้ว (${targets.length} ห้อง)`); loadAssignments(); }
+  catch (err) { return toast(thError(err), "bad"); }
+
+  if (!LINE_ON) return;
+  const items = refs.map(({ t, ref }) => ({ id: ref.id, sectionId: t, label: sectionLabel(t), title, detail, due: dueDate.toISOString(), announce, remind }));
+  try { showLineResult(await lineApi("newAssignment", { items, link: studentLink() }), announce); }
+  catch (err) { toast("LINE: " + err.message, "bad"); }
 };
+
+function showLineResult(r, announce) {
+  const sent = r.results.filter(x => x.sent), fail = r.results.filter(x => !x.sent);
+  if (sent.length) toast(`ส่งเข้า LINE แล้ว ${sent.length} กลุ่ม`);
+  fail.forEach(x => toast(`ส่ง LINE ไม่ได้ (${x.label}): ${x.reason}`, "bad"));
+  if (announce && r.unbound?.length) toast(`ยังไม่ได้เชื่อม LINE: ${r.unbound.join(", ")}`, "warn");
+  const q = r.results.length ? r.results[r.results.length - 1].quota : null;
+  if (q) { lineState.quota = q; renderLineStatus(); }
+}
 
 async function loadAssignments() {
   const snap = await getDocs(query(collection(db, "assignments"), where("sectionId", "==", sec)));
   const list = snap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (b.due?.toMillis?.() ?? 0) - (a.due?.toMillis?.() ?? 0));
+  asgList = list;
   const names = secInfo.slotNames || [];
+  const lineHide = lineState.bound ? "" : " hidden";
   $("#asgList").innerHTML = list.map(a => {
     const due = a.due?.toDate?.();
     let info = "";
     if (a.slot !== null && a.slot !== undefined) {
       const notSent = roster.filter(s => typeof scoreMap[s.uid]?.s?.[a.slot] !== "number");
+      const namesTxt = esc(notSent.map(s => `${s.no}. ${s.firstName} (${s.nickname})`).join("\n"));
       info = `<div style="margin-top:6px">ส่งแล้ว <b>${roster.length - notSent.length}</b>/${roster.length} คน
         (ผูกกับ "${esc(names[a.slot] || "ช่อง " + (a.slot + 1))}")
-        ${notSent.length ? `<button class="sm ghost copy" data-names="${esc(notSent.map(s => `${s.no}. ${s.firstName} (${s.nickname})`).join("\n"))}">📋 คัดลอกรายชื่อคนยังไม่ส่ง</button>` : ""}</div>`;
+        ${notSent.length ? `<button class="sm ghost copy" data-names="${namesTxt}">📋 คัดลอกรายชื่อคนยังไม่ส่ง</button>
+        <button class="sm ghost lineBtn sendNames${lineHide}" data-names="${namesTxt}">📤 ส่งรายชื่อเข้า LINE</button>` : ""}</div>`;
     }
     const st = due && due < new Date() ? "overdue" : "pending";
-    return `<div class="assign ${st}"><div class="row"><div style="flex:5">
+    return `<div class="assign ${st}" data-id="${a.id}"><div class="row"><div style="flex:5">
       <div class="t">${esc(a.title)}</div>
       ${a.detail ? `<div style="white-space:pre-wrap;margin:4px 0">${esc(a.detail)}</div>` : ""}
       <div class="muted">กำหนดส่ง ${due ? thDate(due, true) : "-"}</div>${info}</div>
+      ${st === "pending" ? `<button class="sm ghost lineBtn remind${lineHide}" data-id="${a.id}">🔔 เตือนใน LINE</button>` : ""}
       <button class="sm danger del" data-id="${a.id}">ลบ</button></div></div>`;
   }).join("") || `<p class="muted">ยังไม่มีภาระงาน</p>`;
   $$("#asgList .del").forEach(b => b.onclick = async () => {
     if (!confirm("ลบภาระงานนี้?")) return;
     await deleteDoc(doc(db, "assignments", b.dataset.id)); loadAssignments();
+    if (LINE_ON) lineApi("removeAssignment", { ids: [b.dataset.id] }).catch(() => {});
   });
   $$("#asgList .copy").forEach(b => b.onclick = async () => {
     const title = b.closest(".assign").querySelector(".t").textContent;
-    const text = `📢 ยังไม่ส่ง "${title}" (${sectionLabel(sec)})\n${b.dataset.names}\nรีบส่งด้วยนะคะ`;
+    const text = notSentText(title, b.dataset.names);
     try { await navigator.clipboard.writeText(text); toast("คัดลอกแล้ว วางใน LINE กลุ่มได้เลย"); }
     catch (e) { prompt("คัดลอกข้อความนี้", text); }
   });
+  $$("#asgList .sendNames").forEach(b => b.onclick = () => {
+    const title = b.closest(".assign").querySelector(".t").textContent;
+    linePush(b, () => lineApi("sendText", { sectionId: sec, text: notSentText(title, b.dataset.names) }));
+  });
+  $$("#asgList .remind").forEach(b => b.onclick = () => {
+    const a = asgList.find(x => x.id === b.dataset.id);
+    linePush(b, () => lineApi("remindNow", { sectionId: sec, title: a.title, due: a.due.toDate().toISOString(), link: studentLink() }));
+  });
+}
+const notSentText = (title, names) => `📢 ยังไม่ส่ง "${title}" (${sectionLabel(sec)})\n${names}\nรีบส่งด้วยนะคะ`;
+
+async function linePush(btn, call) {
+  const cost = lineState.members ? ` (ใช้ ${lineState.members} ข้อความจากโควตา)` : "";
+  if (!confirm(`ส่งเข้า LINE กลุ่ม${cost}?`)) return;
+  btn.disabled = true;
+  try {
+    const r = await call();
+    if (r.sent) toast("ส่งเข้า LINE แล้ว"); else toast("ส่ง LINE ไม่ได้: " + r.reason, "bad");
+    if (r.quota) { lineState.quota = r.quota; renderLineStatus(); }
+  } catch (err) { toast("LINE: " + err.message, "bad"); }
+  btn.disabled = false;
+}
+
+/* ---------- เชื่อม LINE กลุ่ม ---------- */
+async function loadLineStatus() {
+  if (!LINE_ON) return;
+  const mySec = sec;
+  $("#lineStatus").textContent = "กำลังโหลด…";
+  $("#lineCode").classList.add("hidden");
+  try {
+    const st = await lineApi("status", { sectionId: mySec });
+    if (mySec !== sec) return;
+    lineState = st; renderLineStatus(); setLineDefaults();
+  } catch (err) {
+    if (mySec === sec) $("#lineStatus").innerHTML = `<span style="color:var(--bad)">${esc(err.message)}</span>`;
+  }
+}
+$("#lineRefresh").onclick = loadLineStatus;
+
+function setLineDefaults() { $("#as_line").checked = !!lineState.bound; }
+
+function quotaText(q) {
+  if (!q || q.error || q.used === undefined) return "";
+  if (q.limit === null) return `เดือนนี้ส่งไปแล้ว ${q.used} ข้อความ`;
+  return `โควตาเดือนนี้ ใช้ไป ${q.used}/${q.limit} · เหลือ <b>${q.left}</b> ข้อความ`;
+}
+
+function renderLineStatus() {
+  if (!LINE_ON) return;
+  const st = lineState, q = quotaText(st.quota);
+  $("#lineStatus").innerHTML = st.bound
+    ? `✅ เชื่อมกับกลุ่ม <b>${esc(st.groupName || "(ไม่มีชื่อกลุ่ม)")}</b> · สมาชิก ${st.members} คน
+       <br>ส่งเข้ากลุ่ม 1 ครั้ง ใช้โควตา ${st.members} ข้อความ (LINE นับตามจำนวนคนในกลุ่ม)${q ? "<br>" + q : ""}
+       <div style="margin-top:8px"><button class="sm ghost" id="lineBind" type="button">เปลี่ยนกลุ่ม</button>
+       <button class="sm danger" id="lineUnbind" type="button">ยกเลิกการเชื่อม</button></div>`
+    : `${st.lost ? "⚠️ บอทไม่ได้อยู่ในกลุ่มเดิมแล้ว ให้เชิญกลับแล้วเชื่อมใหม่" : "ยังไม่ได้เชื่อม LINE กลุ่ม"}${q ? "<br>" + q : ""}
+       <div style="margin-top:8px"><button class="sm" id="lineBind" type="button">เชื่อม LINE กลุ่ม</button></div>`;
+  $("#lineBind").onclick = bindLine;
+  const ub = $("#lineUnbind");
+  if (ub) ub.onclick = async () => {
+    if (!confirm(`ยกเลิกการเชื่อม LINE กลุ่มของ ${sectionLabel(sec)}?`)) return;
+    try { await lineApi("unbind", { sectionId: sec }); toast("ยกเลิกการเชื่อมแล้ว"); loadLineStatus(); }
+    catch (err) { toast(err.message, "bad"); }
+  };
+  $$(".lineBtn").forEach(b => b.classList.toggle("hidden", !st.bound));
+}
+
+async function bindLine() {
+  try {
+    const r = await lineApi("bindCode", { sectionId: sec, label: sectionLabel(sec) });
+    const box = $("#lineCode");
+    box.innerHTML = `1) เชิญบอทเข้า LINE กลุ่มของ <b>${esc(sectionLabel(sec))}</b><br>
+      2) พิมพ์ข้อความนี้ในกลุ่ม: <b style="font-size:1.3rem;letter-spacing:2px">ผูก ${r.code}</b>
+      <button class="sm ghost" id="copyCode" type="button">คัดลอก</button><br>
+      <span class="muted">รหัสใช้ได้ ${r.minutes} นาที · บอทตอบในกลุ่มแล้ว ให้กด "รีเฟรช" ด้านบน</span>`;
+    box.classList.remove("hidden");
+    $("#copyCode").onclick = async () => {
+      try { await navigator.clipboard.writeText(`ผูก ${r.code}`); toast("คัดลอกแล้ว"); } catch (e) { prompt("คัดลอกข้อความนี้", `ผูก ${r.code}`); }
+    };
+  } catch (err) { toast(err.message, "bad"); }
 }
 
 /* ======================= นักเรียน ======================= */
