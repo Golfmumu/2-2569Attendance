@@ -36,5 +36,11 @@ export const QR_ROTATE_SECONDS = 10;
 //    เว้นว่างไว้ = ปิดฟีเจอร์ LINE
 export const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzCdBtDZGdKJdoM6dGCu-dvbaNE0RdwThMlDFVDQ0J4Rnn8LZRfSwrJRy0tIjKqxCff0g/exec";
 
+// 7) ปิดรับเช็คชื่อแล้วกี่นาที จึงแจ้งรายชื่อนักเรียนที่เข้าเรียนเข้า LINE กลุ่ม
+export const ATT_NOTIFY_MIN = 10;
+
+// 8) LINE ID ของบอท (ใช้ทำปุ่มเพิ่มเพื่อนในหน้านักเรียน)
+export const LINE_BOT_ID = "@461jtgbo";
+
 // นักเรียนล็อกอินด้วยรหัสนักเรียน ระบบจะแปลงเป็นอีเมลภายในแบบนี้ (ไม่ต้องแก้)
 export const STUDENT_EMAIL_DOMAIN = "students.classcheck.app";
