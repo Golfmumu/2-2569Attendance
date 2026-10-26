@@ -1,7 +1,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, TEACHER_EMAILS, SECTIONS, STUDENT_EMAIL_DOMAIN } from "./config.js";
+import { firebaseConfig, TEACHER_EMAILS, SECTIONS, STUDENT_EMAIL_DOMAIN, LINE_API_URL } from "./config.js";
 
 export * from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 export * from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -98,4 +98,18 @@ export function thError(e) {
   if (c.includes("permission-denied")) return "ไม่มีสิทธิ์ทำรายการนี้";
   if (c.includes("unavailable") || c.includes("network")) return "เชื่อมต่ออินเทอร์เน็ตไม่ได้";
   return e?.message || "เกิดข้อผิดพลาด";
+}
+
+// เรียกตัวส่ง LINE (Apps Script) — ส่งเป็น text/plain เพื่อไม่ให้ติด CORS
+export async function lineApi(action, data = {}) {
+  if (!LINE_API_URL) throw new Error("ยังไม่ได้ตั้งค่า LINE_API_URL ใน js/config.js");
+  const idToken = await auth.currentUser.getIdToken();
+  let res;
+  try {
+    res = await fetch(LINE_API_URL, { method: "POST", body: JSON.stringify({ action, idToken, ...data }) });
+  } catch (e) { throw new Error("ติดต่อตัวส่ง LINE ไม่ได้ (ตรวจลิงก์ Web app และการตั้งค่า Who has access: Anyone)"); }
+  let out;
+  try { out = await res.json(); } catch (e) { throw new Error("ตัวส่ง LINE ตอบกลับผิดรูปแบบ (ตรวจว่า Deploy เป็น Web app แล้ว)"); }
+  if (!out.ok) throw new Error(out.error || "ส่ง LINE ไม่สำเร็จ");
+  return out;
 }
