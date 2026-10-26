@@ -55,7 +55,7 @@
             <button id="fullBtn">⛶ เต็มจอ</button>
             <button id="toggleOpen" class="ghost">ปิดรับเช็คชื่อ</button>
           </div>
-          <label class="lineOpt" style="display:flex;align-items:center;gap:8px;color:var(--text)">
+          <label class="lineOpt autoOnly" style="display:flex;align-items:center;gap:8px;color:var(--text)">
             <input type="checkbox" id="attLine" style="width:auto"> แจ้งรายชื่อนักเรียนที่เข้าเรียนเข้า LINE กลุ่ม หลังปิดรับ <span id="attLineMin"></span> นาที</label>
         </div>
       </div>
@@ -67,6 +67,7 @@
           <button class="sm ghost" id="allPresent">ทุกคนที่ยังขาด → มา</button>
           <div id="saveInfo" class="muted" style="flex:1 1 220px"></div>
           <button id="saveAtt">💾 บันทึกการเช็คชื่อ</button>
+          <button id="attSendLine" class="ghost lineBtn hidden" type="button">📤 ส่งรายชื่อเข้า LINE</button>
         </div>
         <div class="table-wrap"><table id="attTable"></table></div>
       </div>
@@ -108,7 +109,7 @@
         </div>
         <div class="checks lineOpt">
           <label><input type="checkbox" id="as_line"> ส่งแจ้งเข้า LINE กลุ่มทันที</label>
-          <label><input type="checkbox" id="as_remind"> เตือนใน LINE กลุ่ม 1 วันก่อนครบกำหนด (ตอนเช้า)</label>
+          <label id="as_remindWrap"><input type="checkbox" id="as_remind"> เตือนใน LINE กลุ่ม 1 วันก่อนครบกำหนด (ตอนเช้า)</label>
         </div>
         <p><button type="submit">แจ้งภาระงาน</button></p>
       </form>
@@ -132,9 +133,10 @@
         <div class="row">
           <div><label>ข้อที่ถูก *</label><select id="qz_ans"><option value="0">ก</option><option value="1">ข</option><option value="2">ค</option><option value="3">ง</option></select></div>
           <div><label>คะแนน *</label><input id="qz_pts" type="number" min="0.5" max="100" step="0.5" value="1" required></div>
-          <div><label>เวลาส่งคำถาม *</label><input id="qz_send" type="datetime-local" required></div>
+          <div class="autoOnly"><label>เวลาส่งคำถาม *</label><input id="qz_send" type="datetime-local" required></div>
           <div><label>ปิดรับคำตอบ *</label><input id="qz_close" type="datetime-local" required></div>
-          <div><label>ส่งเฉลย + คะแนนเข้ากลุ่ม *</label><input id="qz_report" type="datetime-local" required></div>
+          <div class="autoOnly"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz_sendRep" checked style="width:auto"> ส่งเฉลย + คะแนนเข้ากลุ่ม เวลา</label>
+            <input id="qz_report" type="datetime-local" required></div>
           <div><label>ส่งไปที่</label>
             <select id="qz_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
         </div>
@@ -318,7 +320,7 @@ $("#attLine").onchange = e => { try { localStorage.setItem("cc_attLine", e.targe
 $("#toggleOpen").onclick = async () => {
   const closing = curSess.open;
   const data = { open: !closing, token: randomToken(), prevToken: randomToken() };
-  if (closing && LINE_API_URL && $("#attLine").checked) {
+  if (closing && LINE_API_URL && lineState.autoSend !== false && $("#attLine").checked) {
     // แจ้ง LINE ช้าไว้ให้ครูแก้สถานะ/กดบันทึกก่อน — บอทใช้สถานะที่บันทึกไว้ ณ เวลาส่ง
     Object.assign(data, { closedAt: serverTimestamp(), lineNotifyAt: Timestamp.fromMillis(Date.now() + ATT_NOTIFY_MIN * 60000), lineNotified: false, lineError: null });
   } else if (!closing) {
@@ -326,6 +328,12 @@ $("#toggleOpen").onclick = async () => {
   }
   await updateDoc(doc(db, "sessions", curSess.id), data);
   loadSessions(curSess.id);
+};
+
+$("#attSendLine").onclick = () => {
+  if (!curSess) return;
+  if (hasPending()) return toast("กด 💾 บันทึกการเช็คชื่อก่อน บอทจะส่งตามสถานะที่บันทึกไว้", "warn");
+  linePush($("#attSendLine"), () => lineApi("sendAttendance", { sessionId: curSess.id }));
 };
 
 function renderAttLineInfo() {
@@ -639,7 +647,7 @@ async function loadAssignments() {
 }
 const notSentText = (title, names) => `📢 ยังไม่ส่ง "${title}" (${sectionLabel(sec)})\n${names}\nรีบส่งด้วยนะคะ`;
 
-async function linePush(btn, call) {
+async function linePush(btn, call, after) {
   const cost = lineState.members ? ` (ใช้ ${lineState.members} ข้อความจากโควตา)` : "";
   if (!confirm(`ส่งเข้า LINE กลุ่ม${cost}?`)) return;
   btn.disabled = true;
@@ -649,6 +657,7 @@ async function linePush(btn, call) {
     if (r.quota) { lineState.quota = r.quota; renderLineStatus(); }
   } catch (err) { toast("LINE: " + err.message, "bad"); }
   btn.disabled = false;
+  if (after) after();
 }
 
 /* ---------- เชื่อม LINE กลุ่ม ---------- */
@@ -693,6 +702,29 @@ function renderLineStatus() {
     catch (err) { toast(err.message, "bad"); }
   };
   $$(".lineBtn").forEach(b => b.classList.toggle("hidden", !st.bound));
+  if (st.autoSend !== undefined) {
+    const on = st.autoSend;
+    $("#lineStatus").insertAdjacentHTML("beforeend", `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+      🤖 ส่งข้อความอัตโนมัติ: <b style="color:${on ? "var(--ok)" : "var(--bad)"}">${on ? "เปิดอยู่" : "ปิดอยู่"}</b>
+      <button class="sm ghost" id="autoToggle" type="button">${on ? "ปิดส่งอัตโนมัติ" : "เปิดส่งอัตโนมัติ"}</button><br>
+      <span class="muted">${on ? "บอทส่งเองตามเวลา: คำถาม เฉลย รายชื่อเข้าเรียน และเตือนงานล่วงหน้า"
+        : "บอทส่งเฉพาะตอนครูกดปุ่ม 📤 เท่านั้น (ตรวจคะแนนตอนปิดรับยังทำงานตามปกติ) · ใช้กับทุกห้อง"}</span></div>`);
+    $("#autoToggle").onclick = async () => {
+      if (!confirm(on ? "ปิดส่งอัตโนมัติทุกห้อง? บอทจะส่งเฉพาะตอนครูกดปุ่มส่ง" : "เปิดส่งอัตโนมัติทุกห้อง?")) return;
+      try { const r = await lineApi("setAutoSend", { on: !on }); lineState.autoSend = r.autoSend; renderLineStatus(); loadQuiz(); toast(r.autoSend ? "เปิดส่งอัตโนมัติแล้ว" : "ปิดส่งอัตโนมัติแล้ว"); }
+      catch (err) { toast(err.message, "bad"); }
+    };
+  }
+  applyAutoMode();
+}
+
+function applyAutoMode() {
+  const auto = lineState.autoSend !== false;
+  $$(".autoOnly").forEach(el => el.classList.toggle("hidden", !auto));
+  $("#as_remindWrap").classList.toggle("hidden", !auto);
+  if (!auto) $("#as_remind").checked = false;
+  $("#qzHelp").innerHTML = auto ? QZ_HELP_AUTO
+    : `ปิดส่งอัตโนมัติอยู่ — ตั้งคำถามแล้วกด <b>📤 ส่งคำถามเข้า LINE</b> ในรายการด้านล่างเมื่อพร้อม · ปิดรับแล้วระบบตรวจคะแนนให้ จากนั้นกด <b>📤 ส่งเฉลย + คะแนน</b>`;
 }
 
 async function bindLine() {
@@ -726,12 +758,14 @@ $("#qz_send").onchange = () => {
   const s = new Date($("#qz_send").value);
   if (!isNaN(s) && !(new Date($("#qz_close").value) > s)) { $("#qz_close").value = toLocalInput(new Date(s.getTime() + 3600000)); $("#qz_close").onchange(); }
 };
+$("#qz_sendRep").onchange = e => { $("#qz_report").disabled = !e.target.checked; };
 $("#qz_close").onchange = () => {
   const c = new Date($("#qz_close").value);
   if (!isNaN(c) && !(new Date($("#qz_report").value) >= c)) $("#qz_report").value = $("#qz_close").value;
 };
-$("#qzHelp").innerHTML = `บอทส่งตามวันเวลาที่ตั้ง (อาจช้าได้ไม่เกิน 5 นาที) · ตรวจคะแนนตอนปิดรับ · ส่งเฉลยได้ตั้งแต่เวลาปิดรับเป็นต้นไป<br>
+const QZ_HELP_AUTO = `บอทส่งตามวันเวลาที่ตั้ง (อาจช้าได้ไม่เกิน 5 นาที) · ตรวจคะแนนตอนปิดรับ · ส่งเฉลยได้ตั้งแต่เวลาปิดรับเป็นต้นไป<br>
   ส่งเข้ากลุ่ม 1 ครั้งใช้โควตาเท่าจำนวนคนในกลุ่ม — ถ้าเวลาส่งเฉลยตรงกับเวลาส่งคำถามข้อถัดไป บอทจะส่งรวมในครั้งเดียว ประหยัดโควตา`;
+$("#qzHelp").innerHTML = QZ_HELP_AUTO;
 
 $("#qzForm").onsubmit = async e => {
   e.preventDefault();
@@ -741,24 +775,27 @@ $("#qzForm").onsubmit = async e => {
   if (choices.length < 2 || choices.some(c => !c)) return toast("กรอกตัวเลือกเรียงจาก ก ไม่เว้นช่อง อย่างน้อย 2 ตัวเลือก", "bad");
   const correct = Number($("#qz_ans").value);
   if (correct >= choices.length) return toast(`ข้อที่ถูก (${LET[correct]}) ยังไม่ได้กรอกตัวเลือก`, "bad");
-  const sendAt = new Date($("#qz_send").value), closeAt = new Date($("#qz_close").value);
+  const manual = LINE_ON && lineState.autoSend === false;
+  const sendAt = manual ? new Date() : new Date($("#qz_send").value), closeAt = new Date($("#qz_close").value);
   if (!(closeAt > sendAt)) return toast("เวลาปิดรับต้องหลังเวลาส่งคำถาม", "bad");
   if (closeAt <= new Date()) return toast("เวลาปิดรับต้องเป็นเวลาในอนาคต", "bad");
-  const reportAt = new Date($("#qz_report").value);
+  const sendReport = manual || $("#qz_sendRep").checked;
+  const reportAt = manual || !sendReport ? closeAt : new Date($("#qz_report").value);
   if (!(reportAt >= closeAt)) return toast("เวลาส่งเฉลยต้องไม่ก่อนเวลาปิดรับ", "bad");
   const targets = $("#qz_target").value === "subject"
     ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
   const b = writeBatch(db);
   targets.forEach(t => b.set(doc(collection(db, "quizzes")), {
     sectionId: t, label: sectionLabel(t), question: $("#qz_q").value.trim(), choices, correct, explanation: $("#qz_exp").value.trim(),
-    points: Number($("#qz_pts").value), sendAt: Timestamp.fromDate(sendAt), closeAt: Timestamp.fromDate(closeAt), reportAt: Timestamp.fromDate(reportAt),
-    status: "scheduled", reported: false, createdAt: serverTimestamp(),
+    points: Number($("#qz_pts").value), sendAt: Timestamp.fromDate(sendAt), closeAt: Timestamp.fromDate(closeAt), reportAt: Timestamp.fromDate(reportAt), sendReport,
+    status: "scheduled", reported: false, manual, createdAt: serverTimestamp(),
   }));
   try { await b.commit(); }
   catch (err) { return toast(thError(err) + " (อัปเดต Firestore Rules แล้วหรือยัง)", "bad"); }
-  e.target.reset(); setQuizDefaults();
+  e.target.reset(); $("#qz_report").disabled = false; setQuizDefaults();
   toast(`ตั้งคำถามแล้ว (${targets.length} ห้อง)`);
-  if (LINE_ON && sendAt.getTime() <= Date.now() + 60000) {
+  if (manual) toast("กด 📤 ส่งคำถามเข้า LINE ในรายการด้านล่างเมื่อพร้อม", "warn");
+  else if (LINE_ON && sendAt.getTime() <= Date.now() + 60000) {
     toast("กำลังส่งคำถามเข้า LINE…", "warn");
     try { await lineApi("runTick"); } catch (err) { toast("LINE: " + err.message, "bad"); }
   }
@@ -788,6 +825,10 @@ async function loadQuiz() {
 
 function renderQuizList() {
   const ST = { scheduled: ["leave", "🕒 รอส่ง"], open: ["late", "🟢 เปิดรับคำตอบ"], closed: ["present", "✅ ปิดรับแล้ว"], error: ["absent", "⚠️ ส่งไม่สำเร็จ"] };
+  const lineHide = lineState.bound ? "" : " hidden";
+  const now = Date.now();
+  const canSend = q => (q.status === "scheduled" || q.status === "error") && q.closeAt?.toMillis?.() > now;
+  const canReport = q => !q.reported && (q.status === "closed" || (q.status === "open" && q.closeAt?.toMillis?.() <= now));
   $("#qzList").innerHTML = quizzes.map(q => {
     const [cls, label] = ST[q.status] || ["leave", q.status];
     const n = qAnswers.filter(a => a.quizId === q.id).length;
@@ -797,15 +838,20 @@ function renderQuizList() {
       q.error ? `<div style="color:var(--bad)">${esc(q.error)}</div>` : "",
       q.reportError && !q.reported ? `<div style="color:var(--bad)">ส่งเฉลยไม่สำเร็จ: ${esc(q.reportError)} (จะลองใหม่ทุก 1 ชั่วโมง)</div>` : "",
       q.reported ? `<div class="muted">ส่งเฉลยเข้ากลุ่มแล้ว</div>` : "",
+      !q.reported && q.sendReport === false ? `<div class="muted">ไม่ส่งเฉลยเข้ากลุ่ม (นักเรียนดูผลได้ในเว็บ · ถ้าเปลี่ยนใจ กดปุ่ม 📤 ส่งเฉลย + คะแนน ได้)</div>` : "",
     ].join("");
     return `<div class="assign ${q.status === "error" ? "overdue" : q.status === "closed" ? "done" : "pending"}"><div class="row"><div style="flex:5">
       <div><span class="pill ${cls}">${label}</span> <span class="muted">${esc(q.points)} คะแนน</span></div>
       <div class="t" style="margin:6px 0;white-space:pre-wrap">${esc(q.question)}</div>
       <div>${(q.choices || []).map((c, i) => i === q.correct ? `<b style="color:var(--ok)">${LET[i]}. ${esc(c)} ✅</b>` : `${LET[i]}. ${esc(c)}`).join("<br>")}</div>
       ${q.explanation ? `<div style="white-space:pre-wrap;margin-top:6px">💡 ${esc(q.explanation)}</div>` : ""}
-      <div class="muted" style="margin-top:6px">ส่ง ${thDate(q.sendAt, true)} · ปิดรับ ${thDate(q.closeAt, true)} · ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}${res}</div>${extra}</div>
+      <div class="muted" style="margin-top:6px">${q.manual && q.status === "scheduled" ? "รอครูกดส่ง" : `ส่ง ${thDate(q.sentAt || q.sendAt, true)}`} · ปิดรับ ${thDate(q.closeAt, true)} · ${q.manual ? "ส่งเฉลยเมื่อครูกดปุ่ม" : q.sendReport === false ? "ไม่ส่งเฉลยเข้ากลุ่ม" : `ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}`}${res}</div>${extra}</div>
+      ${canSend(q) ? `<button class="sm lineBtn qsend${lineHide}" data-id="${q.id}">📤 ส่งคำถามเข้า LINE</button>` : ""}
+      ${canReport(q) ? `<button class="sm ghost lineBtn qrep${lineHide}" data-id="${q.id}">📤 ส่งเฉลย + คะแนน</button>` : ""}
       <button class="sm danger qdel" data-id="${q.id}">ลบ</button></div></div>`;
   }).join("") || `<p class="muted">ยังไม่มีคำถาม</p>`;
+  $$("#qzList .qsend").forEach(b => b.onclick = () => linePush(b, () => lineApi("sendQuiz", { quizId: b.dataset.id }), loadQuiz));
+  $$("#qzList .qrep").forEach(b => b.onclick = () => linePush(b, () => lineApi("sendReport", { quizId: b.dataset.id }), loadQuiz));
   $$("#qzList .qdel").forEach(b => b.onclick = async () => {
     const q = quizzes.find(x => x.id === b.dataset.id);
     const n = qAnswers.filter(a => a.quizId === q.id).length;
