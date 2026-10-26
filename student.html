@@ -144,7 +144,8 @@ async function loadQuizScores(secIds) {
     const right = mine.filter(a => a.correct).length;
     const rows = mine.map(a => `<tr><td style="white-space:normal">${esc(a.question)}</td><td>${thDate(a.time)}</td>
       <td>${!a.graded ? `<span class="pill leave">รอเฉลย</span>` : a.correct ? `<span class="pill present">✅ ถูก</span>`
-        : `<span class="pill absent">❌ ผิด</span> <span class="muted">เฉลย ${LET[a.correctChoice] ?? ""}. ${esc(a.correctText || "")}</span>`}</td>
+        : `<span class="pill absent">❌ ผิด</span> <span class="muted">เฉลย ${LET[a.correctChoice] ?? ""}. ${esc(a.correctText || "")}</span>`}
+        ${a.graded && a.explanation ? `<div class="muted" style="white-space:normal;margin-top:4px">💡 ${esc(a.explanation)}</div>` : ""}</td>
       <td class="num">${a.graded ? esc(a.points) : "-"}</td></tr>`).join("");
     return `<div class="card"><h2>❓ คะแนนตอบคำถาม — ${esc(sectionLabel(id))}</h2>
       <div class="stats"><div class="stat present"><b>${total}</b>คะแนนรวม</div><div class="stat leave"><b>${right}/${mine.length}</b>ตอบถูก (ข้อ)</div></div>
