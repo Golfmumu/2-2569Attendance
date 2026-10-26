@@ -32,5 +32,9 @@ export const DEFAULT_MIDTERM_MAX = 20; // คะแนนเต็มกลา�
 // 5) QR เปลี่ยนรหัสทุกกี่วินาที (กันถ่ายรูป QR ส่งให้เพื่อน)
 export const QR_ROTATE_SECONDS = 10;
 
+// 6) แจ้งเตือนเข้า LINE กลุ่ม — วางลิงก์ Web app ของ Apps Script (ลงท้ายด้วย /exec)
+//    เว้นว่างไว้ = ปิดฟีเจอร์ LINE
+export const LINE_API_URL = "https://script.google.com/macros/s/AKfycbzCdBtDZGdKJdoM6dGCu-dvbaNE0RdwThMlDFVDQ0J4Rnn8LZRfSwrJRy0tIjKqxCff0g/exec";
+
 // นักเรียนล็อกอินด้วยรหัสนักเรียน ระบบจะแปลงเป็นอีเมลภายในแบบนี้ (ไม่ต้องแก้)
 export const STUDENT_EMAIL_DOMAIN = "students.classcheck.app";
