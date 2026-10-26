@@ -32,6 +32,7 @@
     <button data-tab="att" class="active">เช็คชื่อ</button>
     <button data-tab="score">คะแนนเก็บ</button>
     <button data-tab="work">ภาระงาน</button>
+    <button data-tab="quiz">ตอบคำถาม</button>
     <button data-tab="rep">สรุปการมาเรียน</button>
     <button data-tab="stu">รายชื่อนักเรียน</button>
   </div>
@@ -54,10 +55,13 @@
             <button id="fullBtn">⛶ เต็มจอ</button>
             <button id="toggleOpen" class="ghost">ปิดรับเช็คชื่อ</button>
           </div>
+          <label class="lineOpt" style="display:flex;align-items:center;gap:8px;color:var(--text)">
+            <input type="checkbox" id="attLine" style="width:auto"> แจ้งรายชื่อนักเรียนที่เข้าเรียนเข้า LINE กลุ่ม หลังปิดรับ <span id="attLineMin"></span> นาที</label>
         </div>
       </div>
       <div class="card">
         <h2 id="sessTitle"></h2>
+        <div id="attLineInfo" class="muted" style="margin:-6px 0 10px"></div>
         <div class="stats" id="attStats"></div>
         <div class="row no-print save-bar" style="margin-bottom:10px;align-items:center">
           <button class="sm ghost" id="allPresent">ทุกคนที่ยังขาด → มา</button>
@@ -113,6 +117,43 @@
   </section>
 
   <!-- ============ นักเรียน ============ -->
+  <!-- ============ ตอบคำถาม ============ -->
+  <section id="tab-quiz" class="hidden">
+    <div class="card">
+      <h2>❓ ตั้งคำถามใหม่</h2>
+      <form id="qzForm">
+        <label>คำถาม *</label><textarea id="qz_q" required maxlength="500"></textarea>
+        <div class="grid2">
+          <div><label>ตัวเลือก ก *</label><input class="qz_c" required maxlength="200"></div>
+          <div><label>ตัวเลือก ข *</label><input class="qz_c" required maxlength="200"></div>
+          <div><label>ตัวเลือก ค</label><input class="qz_c" maxlength="200"></div>
+          <div><label>ตัวเลือก ง</label><input class="qz_c" maxlength="200"></div>
+        </div>
+        <div class="row">
+          <div><label>ข้อที่ถูก *</label><select id="qz_ans"><option value="0">ก</option><option value="1">ข</option><option value="2">ค</option><option value="3">ง</option></select></div>
+          <div><label>คะแนน *</label><input id="qz_pts" type="number" min="0.5" max="100" step="0.5" value="1" required></div>
+          <div><label>เวลาส่งคำถาม *</label><input id="qz_send" type="datetime-local" required></div>
+          <div><label>ปิดรับคำตอบ *</label><input id="qz_close" type="datetime-local" required></div>
+          <div><label>ส่งเฉลย + คะแนนเข้ากลุ่ม *</label><input id="qz_report" type="datetime-local" required></div>
+          <div><label>ส่งไปที่</label>
+            <select id="qz_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
+        </div>
+        <p class="muted" id="qzHelp"></p>
+        <p><button type="submit">ตั้งคำถาม</button></p>
+      </form>
+    </div>
+    <div class="card"><h2>คำถามของห้องนี้</h2><div id="qzList"></div></div>
+    <div class="card">
+      <div class="row" style="align-items:center">
+        <h2 style="margin:0;flex:1 1 auto">🏆 คะแนนตอบคำถาม</h2>
+        <button class="sm ghost" id="qzCopyUnlinked" type="button">📋 คัดลอกรายชื่อคนยังไม่ผูก LINE</button>
+        <button class="sm ghost" id="qzExport" type="button">ดาวน์โหลด CSV</button>
+      </div>
+      <p class="muted" id="qzSummary"></p>
+      <div class="table-wrap"><table id="qzTable"></table></div>
+    </div>
+  </section>
+
   <!-- ============ สรุปการมาเรียน ============ -->
   <section id="tab-rep" class="hidden">
     <div class="card no-print">
@@ -152,7 +193,7 @@
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, sectionById, randomToken, todayStr, downloadCSV,
   isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
-  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi } from "./js/common.js";
+  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN } from "./js/common.js?v=5";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
@@ -162,7 +203,7 @@ let pending = {}; // การเปลี่ยนสถานะที่ย�
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["att", "score", "work", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["att", "score", "work", "quiz", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
   if (b.dataset.tab === "rep") loadReport();
 });
 $("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
@@ -192,7 +233,7 @@ async function selectSection(id) {
   secInfo = si.exists() ? si.data() : {};
   scoreMap = {}; sc.forEach(d => scoreMap[d.data().uid] = d.data());
   lineState = {};
-  renderStudents(); renderScores(); loadAssignments(); loadSessions(); loadLineStatus();
+  renderStudents(); renderScores(); loadAssignments(); loadSessions(); loadLineStatus(); loadQuiz();
   if (!$("#tab-rep").classList.contains("hidden")) loadReport();
 }
 
@@ -246,6 +287,7 @@ function openSession(id) {
     $("#toggleOpen").textContent = curSess.open ? "ปิดรับเช็คชื่อ" : "เปิดรับอีกครั้ง";
     drawQR();
     renderAttendance();
+    renderAttLineInfo();
   });
   unsubAtt = onSnapshot(collection(db, "sessions", id, "attendance"), snap => {
     attMap = {}; snap.forEach(d => attMap[d.id] = d.data());
@@ -268,10 +310,32 @@ function drawQR() {
   $("#qrState").innerHTML = `<span class="pill present">● เปิดรับเช็คชื่อ</span>`;
 }
 
+$("#attLineMin").textContent = ATT_NOTIFY_MIN;
+try { $("#attLine").checked = localStorage.getItem("cc_attLine") !== "0"; } catch (e) { $("#attLine").checked = true; }
+$("#attLine").onchange = e => { try { localStorage.setItem("cc_attLine", e.target.checked ? "1" : "0"); } catch (x) {} };
+
 $("#toggleOpen").onclick = async () => {
-  await updateDoc(doc(db, "sessions", curSess.id), { open: !curSess.open, token: randomToken(), prevToken: randomToken() });
+  const closing = curSess.open;
+  const data = { open: !closing, token: randomToken(), prevToken: randomToken() };
+  if (closing && LINE_API_URL && $("#attLine").checked) {
+    // แจ้ง LINE ช้าไว้ให้ครูแก้สถานะ/กดบันทึกก่อน — บอทใช้สถานะที่บันทึกไว้ ณ เวลาส่ง
+    Object.assign(data, { closedAt: serverTimestamp(), lineNotifyAt: Timestamp.fromMillis(Date.now() + ATT_NOTIFY_MIN * 60000), lineNotified: false, lineError: null });
+  } else if (!closing) {
+    Object.assign(data, { lineNotifyAt: null }); // เปิดรับอีกครั้ง = ยกเลิกรอบแจ้งที่ค้างอยู่
+  }
+  await updateDoc(doc(db, "sessions", curSess.id), data);
   loadSessions(curSess.id);
 };
+
+function renderAttLineInfo() {
+  const s = curSess, el = $("#attLineInfo");
+  if (!el) return;
+  if (!s || !LINE_API_URL || !s.lineNotifyAt && !s.lineSentAt && !s.lineError) { el.textContent = ""; return; }
+  if (s.lineError) el.innerHTML = `<span style="color:var(--bad)">💬 แจ้ง LINE ไม่สำเร็จ: ${esc(s.lineError)}</span>`;
+  else if (s.lineSentAt) el.textContent = `💬 แจ้งรายชื่อเข้า LINE กลุ่มแล้ว ${thDate(s.lineSentAt, true)}`;
+  else if (s.lineNotifyAt && !s.open) el.textContent = `💬 จะแจ้งรายชื่อเข้า LINE ประมาณ ${thDate(s.lineNotifyAt, true)} (ใช้สถานะที่กดบันทึกไว้)`;
+  else el.textContent = "";
+}
 $("#fullBtn").onclick = () => { $("#qrFull").classList.remove("hidden"); document.documentElement.requestFullscreen?.().catch(() => {}); };
 $("#exitFull").onclick = () => { $("#qrFull").classList.add("hidden"); if (document.fullscreenElement) document.exitFullscreen(); };
 
@@ -644,6 +708,151 @@ async function bindLine() {
     };
   } catch (err) { toast(err.message, "bad"); }
 }
+
+/* ======================= ตอบคำถาม ======================= */
+const LET = ["ก", "ข", "ค", "ง"];
+let quizzes = [], qAnswers = [], lineLinks = {};
+const pad2 = n => String(n).padStart(2, "0");
+const toLocalInput = d => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+function setQuizDefaults() {
+  const d = new Date(Math.ceil(Date.now() / 300000) * 300000);
+  $("#qz_send").value = toLocalInput(d);
+  $("#qz_close").value = toLocalInput(new Date(d.getTime() + 3600000));
+  $("#qz_report").value = $("#qz_close").value;
+}
+setQuizDefaults();
+$("#qz_send").onchange = () => {
+  const s = new Date($("#qz_send").value);
+  if (!isNaN(s) && !(new Date($("#qz_close").value) > s)) { $("#qz_close").value = toLocalInput(new Date(s.getTime() + 3600000)); $("#qz_close").onchange(); }
+};
+$("#qz_close").onchange = () => {
+  const c = new Date($("#qz_close").value);
+  if (!isNaN(c) && !(new Date($("#qz_report").value) >= c)) $("#qz_report").value = $("#qz_close").value;
+};
+$("#qzHelp").innerHTML = `บอทส่งตามวันเวลาที่ตั้ง (อาจช้าได้ไม่เกิน 5 นาที) · ตรวจคะแนนตอนปิดรับ · ส่งเฉลยได้ตั้งแต่เวลาปิดรับเป็นต้นไป<br>
+  ส่งเข้ากลุ่ม 1 ครั้งใช้โควตาเท่าจำนวนคนในกลุ่ม — ถ้าเวลาส่งเฉลยตรงกับเวลาส่งคำถามข้อถัดไป บอทจะส่งรวมในครั้งเดียว ประหยัดโควตา`;
+
+$("#qzForm").onsubmit = async e => {
+  e.preventDefault();
+  const raw = $$(".qz_c").map(i => i.value.trim());
+  const last = raw.map(Boolean).lastIndexOf(true);
+  const choices = raw.slice(0, last + 1);
+  if (choices.length < 2 || choices.some(c => !c)) return toast("กรอกตัวเลือกเรียงจาก ก ไม่เว้นช่อง อย่างน้อย 2 ตัวเลือก", "bad");
+  const correct = Number($("#qz_ans").value);
+  if (correct >= choices.length) return toast(`ข้อที่ถูก (${LET[correct]}) ยังไม่ได้กรอกตัวเลือก`, "bad");
+  const sendAt = new Date($("#qz_send").value), closeAt = new Date($("#qz_close").value);
+  if (!(closeAt > sendAt)) return toast("เวลาปิดรับต้องหลังเวลาส่งคำถาม", "bad");
+  if (closeAt <= new Date()) return toast("เวลาปิดรับต้องเป็นเวลาในอนาคต", "bad");
+  const reportAt = new Date($("#qz_report").value);
+  if (!(reportAt >= closeAt)) return toast("เวลาส่งเฉลยต้องไม่ก่อนเวลาปิดรับ", "bad");
+  const targets = $("#qz_target").value === "subject"
+    ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
+  const b = writeBatch(db);
+  targets.forEach(t => b.set(doc(collection(db, "quizzes")), {
+    sectionId: t, label: sectionLabel(t), question: $("#qz_q").value.trim(), choices, correct,
+    points: Number($("#qz_pts").value), sendAt: Timestamp.fromDate(sendAt), closeAt: Timestamp.fromDate(closeAt), reportAt: Timestamp.fromDate(reportAt),
+    status: "scheduled", reported: false, createdAt: serverTimestamp(),
+  }));
+  try { await b.commit(); }
+  catch (err) { return toast(thError(err) + " (อัปเดต Firestore Rules แล้วหรือยัง)", "bad"); }
+  e.target.reset(); setQuizDefaults();
+  toast(`ตั้งคำถามแล้ว (${targets.length} ห้อง)`);
+  if (LINE_ON && sendAt.getTime() <= Date.now() + 60000) {
+    toast("กำลังส่งคำถามเข้า LINE…", "warn");
+    try { await lineApi("runTick"); } catch (err) { toast("LINE: " + err.message, "bad"); }
+  }
+  loadQuiz();
+};
+
+async function loadQuiz() {
+  const mySec = sec;
+  try {
+    const [qs, as, ll] = await Promise.all([
+      getDocs(query(collection(db, "quizzes"), where("sectionId", "==", mySec))),
+      getDocs(query(collection(db, "quizAnswers"), where("sectionId", "==", mySec))),
+      getDocs(collection(db, "lineLinks")),
+    ]);
+    if (mySec !== sec) return;
+    quizzes = qs.docs.map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (b.sendAt?.toMillis?.() ?? 0) - (a.sendAt?.toMillis?.() ?? 0));
+    qAnswers = as.docs.map(d => ({ id: d.id, ...d.data() }));
+    lineLinks = {}; ll.forEach(d => lineLinks[d.id] = d.data());
+  } catch (err) {
+    if (mySec !== sec) return;
+    $("#qzList").innerHTML = `<p style="color:var(--bad)">โหลดคำถามไม่ได้: ${esc(thError(err))} — ต้องอัปเดต Firestore Rules ก่อน</p>`;
+    return;
+  }
+  renderQuizList(); renderQuizScores();
+}
+
+function renderQuizList() {
+  const ST = { scheduled: ["leave", "🕒 รอส่ง"], open: ["late", "🟢 เปิดรับคำตอบ"], closed: ["present", "✅ ปิดรับแล้ว"], error: ["absent", "⚠️ ส่งไม่สำเร็จ"] };
+  $("#qzList").innerHTML = quizzes.map(q => {
+    const [cls, label] = ST[q.status] || ["leave", q.status];
+    const n = qAnswers.filter(a => a.quizId === q.id).length;
+    const res = q.status === "closed" ? ` · ตอบถูก <b>${q.correctCount ?? 0}</b>/${q.answered ?? n} คน`
+      : q.status === "open" ? ` · ตอบแล้ว <b>${n}</b>/${roster.length} คน` : "";
+    const extra = [
+      q.error ? `<div style="color:var(--bad)">${esc(q.error)}</div>` : "",
+      q.reportError && !q.reported ? `<div style="color:var(--bad)">ส่งเฉลยไม่สำเร็จ: ${esc(q.reportError)} (จะลองใหม่ทุก 1 ชั่วโมง)</div>` : "",
+      q.reported ? `<div class="muted">ส่งเฉลยเข้ากลุ่มแล้ว</div>` : "",
+    ].join("");
+    return `<div class="assign ${q.status === "error" ? "overdue" : q.status === "closed" ? "done" : "pending"}"><div class="row"><div style="flex:5">
+      <div><span class="pill ${cls}">${label}</span> <span class="muted">${esc(q.points)} คะแนน</span></div>
+      <div class="t" style="margin:6px 0;white-space:pre-wrap">${esc(q.question)}</div>
+      <div>${(q.choices || []).map((c, i) => i === q.correct ? `<b style="color:var(--ok)">${LET[i]}. ${esc(c)} ✅</b>` : `${LET[i]}. ${esc(c)}`).join("<br>")}</div>
+      <div class="muted" style="margin-top:6px">ส่ง ${thDate(q.sendAt, true)} · ปิดรับ ${thDate(q.closeAt, true)} · ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}${res}</div>${extra}</div>
+      <button class="sm danger qdel" data-id="${q.id}">ลบ</button></div></div>`;
+  }).join("") || `<p class="muted">ยังไม่มีคำถาม</p>`;
+  $$("#qzList .qdel").forEach(b => b.onclick = async () => {
+    const q = quizzes.find(x => x.id === b.dataset.id);
+    const n = qAnswers.filter(a => a.quizId === q.id).length;
+    if (!confirm(n ? `ลบคำถามนี้และคำตอบของนักเรียน ${n} คน? คะแนนข้อนี้จะหายด้วย` : "ลบคำถามนี้?")) return;
+    const bt = writeBatch(db);
+    bt.delete(doc(db, "quizzes", q.id));
+    qAnswers.filter(a => a.quizId === q.id).forEach(a => bt.delete(doc(db, "quizAnswers", a.id)));
+    try { await bt.commit(); toast("ลบแล้ว"); loadQuiz(); } catch (err) { toast(thError(err), "bad"); }
+  });
+}
+
+function quizRows() {
+  return roster.map(s => {
+    const mine = qAnswers.filter(a => a.uid === s.uid);
+    const graded = mine.filter(a => a.graded);
+    return { s, link: lineLinks[s.uid], answered: mine.length, right: graded.filter(a => a.correct).length,
+      pts: graded.reduce((t, a) => t + (Number(a.points) || 0), 0) };
+  });
+}
+
+function renderQuizScores() {
+  const rows = quizRows();
+  const closed = quizzes.filter(q => q.status === "closed");
+  const full = closed.reduce((t, q) => t + (Number(q.points) || 0), 0);
+  const linked = rows.filter(r => r.link).length;
+  $("#qzSummary").textContent = `ผูก LINE แล้ว ${linked}/${rows.length} คน · ปิดรับแล้ว ${closed.length} ข้อ · คะแนนเต็มสะสม ${full}`;
+  $("#qzTable").innerHTML = `<tr><th class="num">เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>LINE</th><th class="num">ตอบ (ข้อ)</th><th class="num">ถูก</th><th class="num">คะแนนรวม</th></tr>` +
+    rows.map(r => `<tr><td class="num">${esc(r.s.no)}</td><td>${esc(fullName(r.s))}</td><td>${esc(r.s.nickname)}</td>
+      <td>${r.link ? `✅ ${esc(r.link.lineName || "")}` : `<span class="muted">ยังไม่ผูก</span>`}</td>
+      <td class="num">${r.answered}</td><td class="num">${r.right}</td><td class="num"><b>${r.pts}</b></td></tr>`).join("");
+}
+
+$("#qzCopyUnlinked").onclick = async () => {
+  const list = quizRows().filter(r => !r.link).map(r => `${r.s.no}. ${r.s.firstName} (${r.s.nickname})`);
+  if (!list.length) return toast("ผูก LINE ครบทุกคนแล้ว");
+  const text = `🔗 ยังไม่ได้ผูกบัญชี LINE (${sectionLabel(sec)})\n${list.join("\n")}\nเข้าหน้านักเรียน > ข้อมูลส่วนตัว > "ขอรหัสผูก LINE" แล้วพิมพ์รหัสที่ได้ในแชทกับบอทนะคะ`;
+  try { await navigator.clipboard.writeText(text); toast("คัดลอกแล้ว วางใน LINE กลุ่มได้เลย"); }
+  catch (e) { prompt("คัดลอกข้อความนี้", text); }
+};
+
+$("#qzExport").onclick = () => {
+  const closed = quizzes.filter(q => q.status === "closed").sort((a, b) => a.sendAt.toMillis() - b.sendAt.toMillis());
+  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...closed.map((q, i) => `ข้อ${i + 1} (${thDate(q.sendAt)})`), "รวม"];
+  const rows = roster.map(s => {
+    const per = closed.map(q => { const a = qAnswers.find(x => x.quizId === q.id && x.uid === s.uid); return a ? (a.points ?? 0) : ""; });
+    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, ...per, per.reduce((t, v) => t + (Number(v) || 0), 0)];
+  });
+  downloadCSV(`คะแนนตอบคำถาม_${sectionLabel(sec)}.csv`, [head, ...rows]);
+};
 
 /* ======================= นักเรียน ======================= */
 function renderStudents() {
