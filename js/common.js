@@ -1,11 +1,11 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { firebaseConfig, TEACHER_EMAILS, SECTIONS, STUDENT_EMAIL_DOMAIN, LINE_API_URL } from "./config.js";
+import { firebaseConfig, TEACHER_EMAILS, SECTIONS, STUDENT_EMAIL_DOMAIN, LINE_API_URL } from "./config.js?v=5";
 
 export * from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 export * from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-export * from "./config.js";
+export * from "./config.js?v=5";
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
