@@ -38,13 +38,23 @@
         <p><button type="submit">บันทึก</button></p>
       </form>
     </div>
+    <div class="card narrow" id="lineCard">
+      <h2>🔗 ผูกบัญชี LINE (สำหรับตอบคำถามจากบอท)</h2>
+      <div id="lineState" class="muted">กำลังโหลด…</div>
+      <div id="lineCodeBox" class="alert ok hidden" style="margin-top:10px"></div>
+      <p class="row" style="margin-bottom:0">
+        <button type="button" id="lineGetCode">ขอรหัสผูก LINE</button>
+        <a class="btn ghost" id="lineAdd" target="_blank" rel="noopener">➕ เพิ่มเพื่อนบอท</a>
+        <button type="button" class="ghost" id="lineCheck">ตรวจสถานะ</button>
+      </p>
+    </div>
   </section>
 </main>
 
 <script type="module">
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, SECTIONS, SLOT_COUNT, SLOT_MAX,
-  DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail,
-  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp } from "./js/common.js";
+  DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
+  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp } from "./js/common.js?v=5";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
@@ -63,6 +73,7 @@ onAuthStateChanged(auth, async u => {
   const snap = await getDoc(doc(db, "students", u.uid));
   me = snap.exists() ? snap.data() : null;
   fillProfile();
+  loadLine();
   if (!me || !me.sections?.length) {
     $$(".tabs button")[2].click();
     $("#alerts").innerHTML = `<div class="alert warn">กรุณากรอกข้อมูลส่วนตัวและเลือกรายวิชาให้ครบก่อน</div>`;
@@ -114,7 +125,69 @@ async function loadAll() {
   const asgs = asgSnap.docs.map(d => ({ id: d.id, ...d.data() }));
   renderScores(secIds, scores, secInfo);
   renderWork(asgs, scores);
+  loadQuizScores(secIds);
 }
+
+/* ---------- คะแนนตอบคำถาม ---------- */
+const LET = ["ก", "ข", "ค", "ง"];
+async function loadQuizScores(secIds) {
+  let list = [];
+  try {
+    const snap = await getDocs(query(collection(db, "quizAnswers"), where("uid", "==", user.uid)));
+    list = snap.docs.map(d => d.data()).sort((a, b) => (b.time?.toMillis?.() ?? 0) - (a.time?.toMillis?.() ?? 0));
+  } catch (e) { return; }
+  if (!list.length) return;
+  const html = secIds.map(id => {
+    const mine = list.filter(a => a.sectionId === id);
+    if (!mine.length) return "";
+    const total = mine.filter(a => a.graded).reduce((t, a) => t + (Number(a.points) || 0), 0);
+    const right = mine.filter(a => a.correct).length;
+    const rows = mine.map(a => `<tr><td style="white-space:normal">${esc(a.question)}</td><td>${thDate(a.time)}</td>
+      <td>${!a.graded ? `<span class="pill leave">รอเฉลย</span>` : a.correct ? `<span class="pill present">✅ ถูก</span>`
+        : `<span class="pill absent">❌ ผิด</span> <span class="muted">เฉลย ${LET[a.correctChoice] ?? ""}. ${esc(a.correctText || "")}</span>`}</td>
+      <td class="num">${a.graded ? esc(a.points) : "-"}</td></tr>`).join("");
+    return `<div class="card"><h2>❓ คะแนนตอบคำถาม — ${esc(sectionLabel(id))}</h2>
+      <div class="stats"><div class="stat present"><b>${total}</b>คะแนนรวม</div><div class="stat leave"><b>${right}/${mine.length}</b>ตอบถูก (ข้อ)</div></div>
+      <div class="table-wrap"><table><tr><th>คำถาม</th><th>วันที่</th><th>ผล</th><th class="num">คะแนน</th></tr>${rows}</table></div></div>`;
+  }).join("");
+  $("#tab-scores").insertAdjacentHTML("beforeend", html);
+}
+
+/* ---------- ผูกบัญชี LINE ---------- */
+$("#lineAdd").href = `https://line.me/R/ti/p/${encodeURIComponent(LINE_BOT_ID)}`;
+$("#lineCheck").onclick = () => loadLine(true);
+async function loadLine(manual) {
+  try {
+    const d = await getDoc(doc(db, "lineLinks", user.uid));
+    if (d.exists()) {
+      $("#lineState").innerHTML = `✅ ผูกบัญชี LINE แล้ว${d.data().lineName ? ` (${esc(d.data().lineName)})` : ""} — ตอบคำถามในกลุ่มได้เลย`;
+      $("#lineGetCode").textContent = "ผูกกับ LINE บัญชีอื่น";
+      $("#lineCodeBox").classList.add("hidden");
+    } else {
+      $("#lineState").textContent = "ยังไม่ได้ผูกบัญชี LINE — ต้องผูกก่อนจึงจะตอบคำถามจากบอทได้";
+      if (manual) toast("ยังไม่ได้ผูก ลองพิมพ์รหัสในแชทกับบอทอีกครั้ง", "warn");
+    }
+  } catch (e) { $("#lineState").textContent = "ยังเปิดใช้ไม่ได้ ให้แจ้งครู"; }
+}
+$("#lineGetCode").onclick = async () => {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (let tries = 0; tries < 3; tries++) {
+    const a = new Uint8Array(6); crypto.getRandomValues(a);
+    const code = [...a].map(b => chars[b % chars.length]).join("");
+    try {
+      await setDoc(doc(db, "lineLinkCodes", code), { uid: user.uid, expires: Timestamp.fromMillis(Date.now() + 10 * 60000) });
+      $("#lineCodeBox").innerHTML = `1) กด "เพิ่มเพื่อนบอท" แล้วเปิดแชทกับบอท<br>
+        2) พิมพ์ข้อความนี้ส่งให้บอท: <b style="font-size:1.3rem;letter-spacing:2px">เชื่อม ${code}</b>
+        <button class="sm ghost" id="lineCopy" type="button">คัดลอก</button><br>
+        <span class="muted">รหัสใช้ได้ 10 นาที · บอทตอบว่าผูกแล้ว ให้กด "ตรวจสถานะ"</span>`;
+      $("#lineCodeBox").classList.remove("hidden");
+      $("#lineCopy").onclick = async () => {
+        try { await navigator.clipboard.writeText(`เชื่อม ${code}`); toast("คัดลอกแล้ว"); } catch (e) { prompt("คัดลอกข้อความนี้", `เชื่อม ${code}`); }
+      };
+      return;
+    } catch (err) { if (tries === 2) toast(thError(err), "bad"); }
+  }
+};
 
 function slotVal(sc, i) { const v = sc?.s?.[i]; return typeof v === "number" ? v : null; }
 
