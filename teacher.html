@@ -138,6 +138,7 @@
           <div><label>ส่งไปที่</label>
             <select id="qz_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
         </div>
+        <label>คำอธิบายเฉลย (ไม่บังคับ — ส่งเข้ากลุ่มพร้อมเฉลย)</label><textarea id="qz_exp" maxlength="1000"></textarea>
         <p class="muted" id="qzHelp"></p>
         <p><button type="submit">ตั้งคำถาม</button></p>
       </form>
@@ -749,7 +750,7 @@ $("#qzForm").onsubmit = async e => {
     ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
   const b = writeBatch(db);
   targets.forEach(t => b.set(doc(collection(db, "quizzes")), {
-    sectionId: t, label: sectionLabel(t), question: $("#qz_q").value.trim(), choices, correct,
+    sectionId: t, label: sectionLabel(t), question: $("#qz_q").value.trim(), choices, correct, explanation: $("#qz_exp").value.trim(),
     points: Number($("#qz_pts").value), sendAt: Timestamp.fromDate(sendAt), closeAt: Timestamp.fromDate(closeAt), reportAt: Timestamp.fromDate(reportAt),
     status: "scheduled", reported: false, createdAt: serverTimestamp(),
   }));
@@ -801,6 +802,7 @@ function renderQuizList() {
       <div><span class="pill ${cls}">${label}</span> <span class="muted">${esc(q.points)} คะแนน</span></div>
       <div class="t" style="margin:6px 0;white-space:pre-wrap">${esc(q.question)}</div>
       <div>${(q.choices || []).map((c, i) => i === q.correct ? `<b style="color:var(--ok)">${LET[i]}. ${esc(c)} ✅</b>` : `${LET[i]}. ${esc(c)}`).join("<br>")}</div>
+      ${q.explanation ? `<div style="white-space:pre-wrap;margin-top:6px">💡 ${esc(q.explanation)}</div>` : ""}
       <div class="muted" style="margin-top:6px">ส่ง ${thDate(q.sendAt, true)} · ปิดรับ ${thDate(q.closeAt, true)} · ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}${res}</div>${extra}</div>
       <button class="sm danger qdel" data-id="${q.id}">ลบ</button></div></div>`;
   }).join("") || `<p class="muted">ยังไม่มีคำถาม</p>`;
