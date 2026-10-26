@@ -16,10 +16,10 @@ export const TEACHER_EMAILS = ["preechaya.te@gmail.com"];
 
 // 3) รายวิชา / ห้องที่สอน — แก้ชื่อห้องได้ แต่ห้ามเปลี่ยน id หลังเริ่มใช้งานจริง
 export const SECTIONS = [
-  { id: "sci3-r1", subject: "วิทยาศาสตร์ 3", room: "ห้อง 2" },
-  { id: "sci3-r2", subject: "วิทยาศาสตร์ 3", room: "ห้อง 4" },
-  { id: "sci3-r3", subject: "วิทยาศาสตร์ 3", room: "ห้อง 6" },
-  { id: "sci3-r4", subject: "วิทยาศาสตร์ 3", room: "ห้อง 8" },
+  { id: "sci3-r1", subject: "วิทยาศาสตร์ 4", room: "ห้อง 2" },
+  { id: "sci3-r2", subject: "วิทยาศาสตร์ 4", room: "ห้อง 4" },
+  { id: "sci3-r3", subject: "วิทยาศาสตร์ 4", room: "ห้อง 6" },
+  { id: "sci3-r4", subject: "วิทยาศาสตร์ 4", room: "ห้อง 8" },
   { id: "daily-r1", subject: "วิทยาศาสตร์เพื่อชีวิตประจำวัน", room: "ห้อง 1" },
   { id: "bio-r1", subject: "ชีวะคือชีวิต", room: "ม.3" },
 ];
