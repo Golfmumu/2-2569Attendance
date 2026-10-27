@@ -95,6 +95,20 @@
       </div>
       <div id="lineStatus" class="muted" style="margin-top:8px">กำลังโหลด…</div>
       <div id="lineCode" class="alert ok hidden" style="margin:10px 0 0"></div>
+      <div class="lineBtn hidden" id="msgBox" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+        <label style="color:var(--text);font-weight:600">✉️ ส่งข้อความเข้า LINE กลุ่ม</label>
+        <textarea id="msgText" maxlength="4800" placeholder="พิมพ์ข้อความถึงนักเรียน…"></textarea>
+        <div class="checks" style="margin-top:6px">
+          <label><input type="radio" name="msgMode" value="free" checked> 🆓 ฟรี — เก็บเป็นประกาศ แล้วพิมพ์ <b>ประกาศ</b> ในกลุ่ม บอทจะตอบข้อความนี้</label>
+          <label><input type="radio" name="msgMode" value="push"> 📤 ส่งเข้ากลุ่มทันที — ใช้โควตา</label>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <div><select id="msgTarget"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
+          <button type="button" id="msgSend">บันทึกประกาศ</button>
+        </div>
+        <div class="muted" id="msgCount" style="margin-top:4px"></div>
+        <div id="annNow" style="margin-top:10px"></div>
+      </div>
     </div>
     <div class="card">
       <h2>📢 แจ้งภาระงานใหม่</h2>
@@ -647,6 +661,60 @@ async function loadAssignments() {
 }
 const notSentText = (title, names) => `📢 ยังไม่ส่ง "${title}" (${sectionLabel(sec)})\n${names}\nรีบส่งด้วยนะคะ`;
 
+/* ---------- ส่งข้อความอิสระเข้ากลุ่ม ---------- */
+$("#msgText").oninput = () => { const n = $("#msgText").value.length; $("#msgCount").textContent = n ? `${n}/4900 ตัวอักษร` : ""; };
+const msgMode = () => document.querySelector('input[name="msgMode"]:checked').value;
+$$('input[name="msgMode"]').forEach(r => r.onchange = () => {
+  $("#msgSend").textContent = msgMode() === "free" ? "บันทึกประกาศ" : "📤 ส่งข้อความ";
+});
+function renderAnnounce() {
+  const a = lineState.announce;
+  $("#annNow").innerHTML = a ? `<div class="alert ${a.shown ? "ok" : "warn"}" style="margin:0">
+      📌 <b>ประกาศล่าสุดของห้องนี้</b> · ${thDate(new Date(a.at), true)} · ${a.shown ? "มีคนเปิดดูในกลุ่มแล้ว" : "ยังไม่มีใครพิมพ์ <b>ประกาศ</b> ในกลุ่ม"}
+      <div style="white-space:pre-wrap;margin:6px 0">${esc(a.text)}</div>
+      <button class="sm ghost" id="annClear" type="button">ลบประกาศนี้</button></div>` : "";
+  const c = $("#annClear");
+  if (c) c.onclick = async () => {
+    if (!confirm("ลบประกาศของห้องนี้?")) return;
+    try { await lineApi("saveAnnounce", { sectionIds: [sec], text: "" }); lineState.announce = null; renderAnnounce(); toast("ลบแล้ว"); }
+    catch (err) { toast(err.message, "bad"); }
+  };
+}
+$("#msgSend").onclick = async () => {
+  const text = $("#msgText").value.trim();
+  if (!text) return toast("พิมพ์ข้อความก่อน", "warn");
+  const targets = $("#msgTarget").value === "subject"
+    ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
+  if (msgMode() === "free") {
+    const btn = $("#msgSend"); btn.disabled = true;
+    try {
+      const r = await lineApi("saveAnnounce", { sectionIds: targets, text });
+      lineState.announce = { text, at: new Date().toISOString(), shown: false };
+      $("#msgText").value = ""; $("#msgCount").textContent = "";
+      toast(`บันทึกประกาศแล้ว (${targets.length} ห้อง) — พิมพ์ "ประกาศ" ในกลุ่ม LINE ได้เลย`);
+      if (r.unbound?.length) toast(`ยังไม่ได้เชื่อม LINE: ${r.unbound.map(sectionLabel).join(", ")}`, "warn");
+      renderAnnounce();
+    } catch (err) { toast(err.message, "bad"); }
+    btn.disabled = false;
+    return;
+  }
+  const cost = lineState.members ? `\n(ห้องนี้ใช้ ${lineState.members} ข้อความจากโควตา${targets.length > 1 ? " ห้องอื่นคิดตามจำนวนคนในแต่ละกลุ่ม" : ""})` : "";
+  if (!confirm(`ส่งข้อความนี้เข้า LINE กลุ่ม ${targets.length} ห้อง?${cost}`)) return;
+  const btn = $("#msgSend"); btn.disabled = true;
+  let ok = 0; const fail = [];
+  for (const t of targets) {
+    try {
+      const r = await lineApi("sendText", { sectionId: t, text });
+      if (r.sent) ok++; else fail.push(`${sectionLabel(t)}: ${r.reason}`);
+      if (r.quota && t === sec) { lineState.quota = r.quota; }
+    } catch (err) { fail.push(`${sectionLabel(t)}: ${err.message}`); }
+  }
+  btn.disabled = false;
+  if (ok) { toast(`ส่งแล้ว ${ok} กลุ่ม`); $("#msgText").value = ""; $("#msgCount").textContent = ""; }
+  fail.forEach(f => toast("ส่งไม่ได้ — " + f, "bad"));
+  renderLineStatus();
+};
+
 async function linePush(btn, call, after) {
   const cost = lineState.members ? ` (ใช้ ${lineState.members} ข้อความจากโควตา)` : "";
   if (!confirm(`ส่งเข้า LINE กลุ่ม${cost}?`)) return;
@@ -702,6 +770,7 @@ function renderLineStatus() {
     catch (err) { toast(err.message, "bad"); }
   };
   $$(".lineBtn").forEach(b => b.classList.toggle("hidden", !st.bound));
+  renderAnnounce();
   if (st.autoSend !== undefined) {
     const on = st.autoSend;
     $("#lineStatus").insertAdjacentHTML("beforeend", `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
