@@ -137,6 +137,10 @@
     <div class="card">
       <h2>❓ ตั้งคำถามใหม่</h2>
       <form id="qzForm">
+        <div class="checks" style="margin-bottom:6px">
+          <label><input type="radio" name="qzMode" value="free" checked> 🆓 <b>เตรียมไว้ ครูส่งเอง</b> — พิมพ์ <b>คำถาม</b> ในกลุ่ม LINE เพื่อส่ง และ <b>เฉลย</b> เพื่อปิดรับ (ไม่ใช้โควตา)</label>
+          <label><input type="radio" name="qzMode" value="sched"> ⏰ ตั้งเวลาให้บอทส่งเอง (ใช้โควตา)</label>
+        </div>
         <label>คำถาม *</label><textarea id="qz_q" required maxlength="500"></textarea>
         <div class="grid2">
           <div><label>ตัวเลือก ก *</label><input class="qz_c" required maxlength="200"></div>
@@ -147,16 +151,16 @@
         <div class="row">
           <div><label>ข้อที่ถูก *</label><select id="qz_ans"><option value="0">ก</option><option value="1">ข</option><option value="2">ค</option><option value="3">ง</option></select></div>
           <div><label>คะแนน *</label><input id="qz_pts" type="number" min="0.5" max="100" step="0.5" value="1" required></div>
-          <div class="autoOnly"><label>เวลาส่งคำถาม *</label><input id="qz_send" type="datetime-local" required></div>
-          <div><label>ปิดรับคำตอบ *</label><input id="qz_close" type="datetime-local" required></div>
-          <div class="autoOnly"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz_sendRep" checked style="width:auto"> ส่งเฉลย + คะแนนเข้ากลุ่ม เวลา</label>
+          <div class="autoOnly schedOnly"><label>เวลาส่งคำถาม *</label><input id="qz_send" type="datetime-local" required></div>
+          <div class="schedOnly"><label>ปิดรับคำตอบ *</label><input id="qz_close" type="datetime-local" required></div>
+          <div class="autoOnly schedOnly"><label style="display:flex;align-items:center;gap:6px"><input type="checkbox" id="qz_sendRep" checked style="width:auto"> ส่งเฉลย + คะแนนเข้ากลุ่ม เวลา</label>
             <input id="qz_report" type="datetime-local" required></div>
           <div><label>ส่งไปที่</label>
             <select id="qz_target"><option value="one">เฉพาะห้องที่เลือกอยู่</option><option value="subject">ทุกห้องของวิชานี้</option></select></div>
         </div>
         <label>คำอธิบายเฉลย (ไม่บังคับ — ส่งเข้ากลุ่มพร้อมเฉลย)</label><textarea id="qz_exp" maxlength="1000"></textarea>
         <p class="muted" id="qzHelp"></p>
-        <p><button type="submit">ตั้งคำถาม</button></p>
+        <p><button type="submit" id="qzSubmit">ตั้งคำถาม</button></p>
       </form>
     </div>
     <div class="card"><h2>คำถามของห้องนี้</h2><div id="qzList"></div></div>
@@ -759,10 +763,30 @@ function renderLineStatus() {
     ? `✅ เชื่อมกับกลุ่ม <b>${esc(st.groupName || "(ไม่มีชื่อกลุ่ม)")}</b> · สมาชิก ${st.members} คน
        <br>ส่งเข้ากลุ่ม 1 ครั้ง ใช้โควตา ${st.members} ข้อความ (LINE นับตามจำนวนคนในกลุ่ม)${q ? "<br>" + q : ""}
        <div style="margin-top:8px"><button class="sm ghost" id="lineBind" type="button">เปลี่ยนกลุ่ม</button>
-       <button class="sm danger" id="lineUnbind" type="button">ยกเลิกการเชื่อม</button></div>`
+       <button class="sm danger" id="lineUnbind" type="button">ยกเลิกการเชื่อม</button></div>
+       <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">👩‍🏫 บัญชี LINE ครู:
+         ${st.teacherLines ? `<b style="color:var(--ok)">ผูกแล้ว ${st.teacherLines} บัญชี</b>` : `<b style="color:var(--bad)">ยังไม่ผูก</b>`}
+         <button class="sm ghost" id="teacherLink" type="button">${st.teacherLines ? "ผูกบัญชีเพิ่ม" : "ผูก LINE ครู"}</button><br>
+         <span class="muted">ต้องผูกก่อน จึงจะพิมพ์ "คำถาม" / "เฉลย" ในกลุ่มได้ (ผูกครั้งเดียว ใช้ได้ทุกห้อง)</span>
+         <div id="teacherCode" class="alert ok hidden" style="margin:8px 0 0"></div></div>`
     : `${st.lost ? "⚠️ บอทไม่ได้อยู่ในกลุ่มเดิมแล้ว ให้เชิญกลับแล้วเชื่อมใหม่" : "ยังไม่ได้เชื่อม LINE กลุ่ม"}${q ? "<br>" + q : ""}
        <div style="margin-top:8px"><button class="sm" id="lineBind" type="button">เชื่อม LINE กลุ่ม</button></div>`;
   $("#lineBind").onclick = bindLine;
+  const tl = $("#teacherLink");
+  if (tl) tl.onclick = async () => {
+    try {
+      const r = await lineApi("teacherCode");
+      const box = $("#teacherCode");
+      box.innerHTML = `1) เพิ่มบอทเป็นเพื่อนใน LINE ของครู (ถ้ายังไม่ได้เพิ่ม)<br>
+        2) ส่งข้อความนี้ในแชทกับบอท หรือในกลุ่มก็ได้: <b style="font-size:1.2rem;letter-spacing:2px">ครู ${r.code}</b>
+        <button class="sm ghost" id="tcCopy" type="button">คัดลอก</button><br>
+        <span class="muted">รหัสใช้ได้ ${r.minutes} นาที · บอทตอบว่าผูกแล้ว ให้กด "รีเฟรช" ด้านบน</span>`;
+      box.classList.remove("hidden");
+      $("#tcCopy").onclick = async () => {
+        try { await navigator.clipboard.writeText(`ครู ${r.code}`); toast("คัดลอกแล้ว"); } catch (e) { prompt("คัดลอกข้อความนี้", `ครู ${r.code}`); }
+      };
+    } catch (err) { toast(err.message, "bad"); }
+  };
   const ub = $("#lineUnbind");
   if (ub) ub.onclick = async () => {
     if (!confirm(`ยกเลิกการเชื่อม LINE กลุ่มของ ${sectionLabel(sec)}?`)) return;
@@ -792,8 +816,7 @@ function applyAutoMode() {
   $$(".autoOnly").forEach(el => el.classList.toggle("hidden", !auto));
   $("#as_remindWrap").classList.toggle("hidden", !auto);
   if (!auto) $("#as_remind").checked = false;
-  $("#qzHelp").innerHTML = auto ? QZ_HELP_AUTO
-    : `ปิดส่งอัตโนมัติอยู่ — ตั้งคำถามแล้วกด <b>📤 ส่งคำถามเข้า LINE</b> ในรายการด้านล่างเมื่อพร้อม · ปิดรับแล้วระบบตรวจคะแนนให้ จากนั้นกด <b>📤 ส่งเฉลย + คะแนน</b>`;
+  applyQzMode();
 }
 
 async function bindLine() {
@@ -834,7 +857,21 @@ $("#qz_close").onchange = () => {
 };
 const QZ_HELP_AUTO = `บอทส่งตามวันเวลาที่ตั้ง (อาจช้าได้ไม่เกิน 5 นาที) · ตรวจคะแนนตอนปิดรับ · ส่งเฉลยได้ตั้งแต่เวลาปิดรับเป็นต้นไป<br>
   ส่งเข้ากลุ่ม 1 ครั้งใช้โควตาเท่าจำนวนคนในกลุ่ม — ถ้าเวลาส่งเฉลยตรงกับเวลาส่งคำถามข้อถัดไป บอทจะส่งรวมในครั้งเดียว ประหยัดโควตา`;
-$("#qzHelp").innerHTML = QZ_HELP_AUTO;
+const QZ_HELP_FREE = `เตรียมคำถามไว้ได้หลายข้อ บอทจะส่ง<b>ทีละข้อตามลำดับในรายการ</b> ·
+  ในกลุ่ม LINE ครูพิมพ์ <b>คำถาม</b> → บอทส่งข้อถัดไปพร้อมปุ่มให้นักเรียนกดตอบ ·
+  พิมพ์ <b>เฉลย</b> → ปิดรับ ตรวจคะแนน และส่งเฉลย + คะแนนทุกคน · ไม่ใช้โควตา<br>
+  ต้องผูก LINE ครูก่อน (กล่อง 💬 ในแท็บภาระงาน) — คนอื่นพิมพ์คำเหล่านี้บอทจะไม่ตอบ`;
+const qzMode = () => document.querySelector('input[name="qzMode"]:checked').value;
+function applyQzMode() {
+  const free = qzMode() === "free", auto = lineState.autoSend !== false;
+  $$(".schedOnly").forEach(el => el.classList.toggle("hidden", free || (el.classList.contains("autoOnly") && !auto)));
+  $("#qzSubmit").textContent = free ? "เพิ่มคำถามไว้ในคิว" : "ตั้งคำถาม";
+  if (free) $("#qzHelp").innerHTML = QZ_HELP_FREE;
+  else $("#qzHelp").innerHTML = auto ? QZ_HELP_AUTO
+    : `ปิดส่งอัตโนมัติอยู่ — ตั้งคำถามแล้วกด <b>📤 ส่งคำถามเข้า LINE</b> ในรายการด้านล่างเมื่อพร้อม · ปิดรับแล้วระบบตรวจคะแนนให้ จากนั้นกด <b>📤 ส่งเฉลย + คะแนน</b>`;
+}
+$$('input[name="qzMode"]').forEach(r => r.onchange = applyQzMode);
+applyQzMode();
 
 $("#qzForm").onsubmit = async e => {
   e.preventDefault();
@@ -844,6 +881,21 @@ $("#qzForm").onsubmit = async e => {
   if (choices.length < 2 || choices.some(c => !c)) return toast("กรอกตัวเลือกเรียงจาก ก ไม่เว้นช่อง อย่างน้อย 2 ตัวเลือก", "bad");
   const correct = Number($("#qz_ans").value);
   if (correct >= choices.length) return toast(`ข้อที่ถูก (${LET[correct]}) ยังไม่ได้กรอกตัวเลือก`, "bad");
+  if (qzMode() === "free") {
+    const targets = $("#qz_target").value === "subject"
+      ? SECTIONS.filter(s => s.subject === sectionById(sec).subject).map(s => s.id) : [sec];
+    const b = writeBatch(db), now = Timestamp.now();
+    targets.forEach(t => b.set(doc(collection(db, "quizzes")), {
+      sectionId: t, label: sectionLabel(t), question: $("#qz_q").value.trim(), choices, correct, explanation: $("#qz_exp").value.trim(),
+      points: Number($("#qz_pts").value), status: "ready", mode: "free", manual: true, sendReport: true, reported: false,
+      queueAt: now, createdAt: serverTimestamp(),
+    }));
+    try { await b.commit(); }
+    catch (err) { return toast(thError(err), "bad"); }
+    e.target.reset(); $("#qz_report").disabled = false; setQuizDefaults(); applyQzMode();
+    toast(`เพิ่มคำถามในคิวแล้ว (${targets.length} ห้อง) — พิมพ์ "คำถาม" ในกลุ่ม LINE เพื่อส่ง`);
+    return loadQuiz();
+  }
   const manual = LINE_ON && lineState.autoSend === false;
   const sendAt = manual ? new Date() : new Date($("#qz_send").value), closeAt = new Date($("#qz_close").value);
   if (!(closeAt > sendAt)) return toast("เวลาปิดรับต้องหลังเวลาส่งคำถาม", "bad");
@@ -861,7 +913,7 @@ $("#qzForm").onsubmit = async e => {
   }));
   try { await b.commit(); }
   catch (err) { return toast(thError(err) + " (อัปเดต Firestore Rules แล้วหรือยัง)", "bad"); }
-  e.target.reset(); $("#qz_report").disabled = false; setQuizDefaults();
+  e.target.reset(); $("#qz_report").disabled = false; setQuizDefaults(); applyQzMode();
   toast(`ตั้งคำถามแล้ว (${targets.length} ห้อง)`);
   if (manual) toast("กด 📤 ส่งคำถามเข้า LINE ในรายการด้านล่างเมื่อพร้อม", "warn");
   else if (LINE_ON && sendAt.getTime() <= Date.now() + 60000) {
@@ -880,8 +932,12 @@ async function loadQuiz() {
       getDocs(collection(db, "lineLinks")),
     ]);
     if (mySec !== sec) return;
-    quizzes = qs.docs.map(d => ({ id: d.id, ...d.data() }))
-      .sort((a, b) => (b.sendAt?.toMillis?.() ?? 0) - (a.sendAt?.toMillis?.() ?? 0));
+    const all = qs.docs.map(d => ({ id: d.id, ...d.data() }));
+    const qa = q => q.queueAt?.toMillis?.() ?? q.createdAt?.toMillis?.() ?? 0;
+    quizzes = [
+      ...all.filter(q => q.status === "ready").sort((a, b) => qa(a) - qa(b)),
+      ...all.filter(q => q.status !== "ready").sort((a, b) => (b.sendAt?.toMillis?.() ?? 0) - (a.sendAt?.toMillis?.() ?? 0)),
+    ];
     qAnswers = as.docs.map(d => ({ id: d.id, ...d.data() }));
     lineLinks = {}; ll.forEach(d => lineLinks[d.id] = d.data());
   } catch (err) {
@@ -893,11 +949,20 @@ async function loadQuiz() {
 }
 
 function renderQuizList() {
-  const ST = { scheduled: ["leave", "🕒 รอส่ง"], open: ["late", "🟢 เปิดรับคำตอบ"], closed: ["present", "✅ ปิดรับแล้ว"], error: ["absent", "⚠️ ส่งไม่สำเร็จ"] };
+  const ST = { ready: ["leave", "📝 เตรียมไว้"], scheduled: ["leave", "🕒 รอส่ง"], open: ["late", "🟢 เปิดรับคำตอบ"], closed: ["present", "✅ ปิดรับแล้ว"], error: ["absent", "⚠️ ส่งไม่สำเร็จ"] };
   const lineHide = lineState.bound ? "" : " hidden";
   const now = Date.now();
   const canSend = q => (q.status === "scheduled" || q.status === "error") && q.closeAt?.toMillis?.() > now;
   const canReport = q => !q.reported && (q.status === "closed" || (q.status === "open" && q.closeAt?.toMillis?.() <= now));
+  const firstReady = quizzes.find(q => q.status === "ready");
+  const meta = q => {
+    if (q.mode === "free") {
+      if (q.status === "ready") return q === firstReady ? `<b style="color:var(--pri)">▶ ข้อถัดไป — พิมพ์ "คำถาม" ในกลุ่ม LINE เพื่อส่ง</b>` : "รอในคิว";
+      if (q.status === "open") return `ส่ง ${thDate(q.sentAt, true)} · พิมพ์ "เฉลย" ในกลุ่มเพื่อปิดรับและส่งเฉลย`;
+      return `ส่ง ${thDate(q.sentAt, true)} · ปิดรับ ${thDate(q.closedAt || q.closeAt, true)}`;
+    }
+    return `${q.manual && q.status === "scheduled" ? "รอครูกดส่ง" : `ส่ง ${thDate(q.sentAt || q.sendAt, true)}`} · ปิดรับ ${thDate(q.closeAt, true)} · ${q.manual ? "ส่งเฉลยเมื่อครูกดปุ่ม" : q.sendReport === false ? "ไม่ส่งเฉลยเข้ากลุ่ม" : `ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}`}`;
+  };
   $("#qzList").innerHTML = quizzes.map(q => {
     const [cls, label] = ST[q.status] || ["leave", q.status];
     const n = qAnswers.filter(a => a.quizId === q.id).length;
@@ -914,11 +979,17 @@ function renderQuizList() {
       <div class="t" style="margin:6px 0;white-space:pre-wrap">${esc(q.question)}</div>
       <div>${(q.choices || []).map((c, i) => i === q.correct ? `<b style="color:var(--ok)">${LET[i]}. ${esc(c)} ✅</b>` : `${LET[i]}. ${esc(c)}`).join("<br>")}</div>
       ${q.explanation ? `<div style="white-space:pre-wrap;margin-top:6px">💡 ${esc(q.explanation)}</div>` : ""}
-      <div class="muted" style="margin-top:6px">${q.manual && q.status === "scheduled" ? "รอครูกดส่ง" : `ส่ง ${thDate(q.sentAt || q.sendAt, true)}`} · ปิดรับ ${thDate(q.closeAt, true)} · ${q.manual ? "ส่งเฉลยเมื่อครูกดปุ่ม" : q.sendReport === false ? "ไม่ส่งเฉลยเข้ากลุ่ม" : `ส่งเฉลย ${thDate(q.reportAt || q.closeAt, true)}`}${res}</div>${extra}</div>
+      <div class="muted" style="margin-top:6px">${meta(q)}${res}</div>${extra}</div>
+      ${q.status === "ready" && q !== firstReady ? `<button class="sm ghost qnext" data-id="${q.id}">⏫ ให้เป็นข้อถัดไป</button>` : ""}
       ${canSend(q) ? `<button class="sm lineBtn qsend${lineHide}" data-id="${q.id}">📤 ส่งคำถามเข้า LINE</button>` : ""}
       ${canReport(q) ? `<button class="sm ghost lineBtn qrep${lineHide}" data-id="${q.id}">📤 ส่งเฉลย + คะแนน</button>` : ""}
       <button class="sm danger qdel" data-id="${q.id}">ลบ</button></div></div>`;
   }).join("") || `<p class="muted">ยังไม่มีคำถาม</p>`;
+  $$("#qzList .qnext").forEach(b => b.onclick = async () => {
+    const min = Math.min(...quizzes.filter(q => q.status === "ready").map(q => q.queueAt?.toMillis?.() ?? q.createdAt?.toMillis?.() ?? Date.now()));
+    try { await updateDoc(doc(db, "quizzes", b.dataset.id), { queueAt: Timestamp.fromMillis(min - 1000) }); loadQuiz(); }
+    catch (err) { toast(thError(err), "bad"); }
+  });
   $$("#qzList .qsend").forEach(b => b.onclick = () => linePush(b, () => lineApi("sendQuiz", { quizId: b.dataset.id }), loadQuiz));
   $$("#qzList .qrep").forEach(b => b.onclick = () => linePush(b, () => lineApi("sendReport", { quizId: b.dataset.id }), loadQuiz));
   $$("#qzList .qdel").forEach(b => b.onclick = async () => {
