@@ -33,6 +33,7 @@
     <button data-tab="score">คะแนนเก็บ</button>
     <button data-tab="work">ภาระงาน</button>
     <button data-tab="quiz">ตอบคำถาม</button>
+    <button data-tab="grp">กลุ่ม</button>
     <button data-tab="rep">สรุปการมาเรียน</button>
     <button data-tab="stu">รายชื่อนักเรียน</button>
   </div>
@@ -81,6 +82,10 @@
         <p class="muted" style="flex:3">ช่องละ 10 คะแนน × 10 ช่อง = 100 คะแนน · แก้ชื่อช่องได้ที่หัวตาราง · กด "บันทึก" หลังกรอกเสร็จ</p>
         <button id="saveScores">💾 บันทึกคะแนน</button>
         <button id="exportScores" class="ghost">⬇️ CSV</button>
+      </div>
+      <div class="row no-print" style="margin-bottom:12px">
+        <div><label>เรียงตาม</label><select id="scSort"><option value="no">เลขที่</option><option value="total">คะแนนรวมมากที่สุด</option><option value="group">ชื่อกลุ่ม (ก–ฮ)</option></select></div>
+        <div><label>แสดง</label><select id="scFilter"></select></div>
       </div>
       <div class="table-wrap"><table class="scores" id="scoreTable"></table></div>
     </div>
@@ -175,6 +180,45 @@
     </div>
   </section>
 
+  <!-- ============ กลุ่ม ============ -->
+  <section id="tab-grp" class="hidden">
+    <div class="card">
+      <h2>⚙️ ตั้งค่ากลุ่มของห้องนี้</h2>
+      <div id="gLockState"></div>
+      <label>📢 ข้อความเตรียมประกาศ — บอทส่งข้อความนี้พร้อมคะแนนกลุ่ม เมื่อครูพิมพ์ <b>ประกาศคะแนนกลุ่ม</b> ในกลุ่ม LINE (ไม่ใช้โควตา)</label>
+      <textarea id="gAnn" maxlength="1000" placeholder="เช่น สรุปคะแนนกลุ่มสัปดาห์นี้ เก่งมากทุกคน 👏"></textarea>
+      <p><button id="gAnnSave" type="button">💾 บันทึกข้อความ</button> <span class="muted" id="gAnnInfo"></span></p>
+    </div>
+    <div class="card">
+      <div class="row" style="align-items:end">
+        <h2 style="margin:0;flex:1 1 auto">🏆 คะแนนกลุ่ม</h2>
+        <div style="flex:0 1 220px"><label>เรียงตาม</label><select id="gSort"><option value="total">คะแนนรวมมากที่สุด</option><option value="name">ชื่อกลุ่ม (ก–ฮ)</option></select></div>
+        <button class="ghost" id="gExport" type="button">⬇️ CSV</button>
+      </div>
+      <p class="muted">คะแนนกลุ่ม = คะแนนตอบคำถามใน LINE ของสมาชิกทุกคนรวมกัน + คะแนนใบงาน (แยกจากคะแนนเก็บ 10 ช่อง)</p>
+      <div class="table-wrap"><table id="gTable"></table></div>
+    </div>
+    <div class="card">
+      <h2>📝 คะแนนใบงาน (รายกลุ่ม)</h2>
+      <div class="row">
+        <div><label>ชื่อใบงาน</label><input id="wsTitle" maxlength="60" placeholder="เช่น ใบงานที่ 1 เซลล์"></div>
+        <div style="flex:0 1 200px"><label>วันที่</label><input id="wsDate" type="date"></div>
+        <button id="wsAdd" type="button">➕ เพิ่มใบงาน</button>
+      </div>
+      <div class="table-wrap" style="margin-top:12px"><table class="scores" id="wsTable"></table></div>
+      <p><button id="wsSave" type="button">💾 บันทึกคะแนนใบงาน</button></p>
+    </div>
+    <div class="card">
+      <div class="row" style="align-items:end">
+        <h2 style="margin:0;flex:1 1 auto">👤 นักเรียนรายคน</h2>
+        <div style="flex:0 1 220px"><label>เรียงตาม</label><select id="pSort"><option value="no">เลขที่</option><option value="total">คะแนนตอบคำถามมากที่สุด</option><option value="group">ชื่อกลุ่ม (ก–ฮ)</option></select></div>
+        <div style="flex:0 1 220px"><label>แสดง</label><select id="pFilter"></select></div>
+      </div>
+      <p class="muted">เปลี่ยนกลุ่มในช่อง "กลุ่ม" ได้ทันที (ครูย้ายได้แม้ล็อกกลุ่มแล้ว)</p>
+      <div class="table-wrap"><table id="pTable"></table></div>
+    </div>
+  </section>
+
   <!-- ============ สรุปการมาเรียน ============ -->
   <section id="tab-rep" class="hidden">
     <div class="card no-print">
@@ -214,7 +258,7 @@
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, sectionById, randomToken, todayStr, downloadCSV,
   isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
-  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN } from "./js/common.js?v=5";
+  onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN, deleteField } from "./js/common.js?v=5";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
@@ -224,7 +268,7 @@ let pending = {}; // การเปลี่ยนสถานะที่ย�
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["att", "score", "work", "quiz", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["att", "score", "work", "quiz", "grp", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
   if (b.dataset.tab === "rep") loadReport();
 });
 $("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
@@ -254,7 +298,7 @@ async function selectSection(id) {
   secInfo = si.exists() ? si.data() : {};
   scoreMap = {}; sc.forEach(d => scoreMap[d.data().uid] = d.data());
   lineState = {};
-  renderStudents(); renderScores(); loadAssignments(); loadSessions(); loadLineStatus(); loadQuiz();
+  renderStudents(); renderScores(); loadAssignments(); loadSessions(); loadLineStatus(); loadQuiz(); loadGroupsT();
   if (!$("#tab-rep").classList.contains("hidden")) loadReport();
 }
 
@@ -516,18 +560,19 @@ function renderScores() {
   const mMax = secInfo.midtermMax ?? DEFAULT_MIDTERM_MAX;
   const slots = Array.from({ length: SLOT_COUNT }, (_, i) => i);
   $("#scoreTable").innerHTML =
-    `<tr><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th>` +
+    `<tr><th>เลขที่</th><th>รหัสนักเรียน</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>กลุ่ม</th>` +
     slots.map(i => `<th class="num"><input class="slotName" data-i="${i}" value="${esc(names[i] || "ช่อง " + (i + 1))}"><br><span class="muted">/${SLOT_MAX}</span></th>`).join("") +
     `<th class="num">รวมเก็บ<br><span class="muted">/${SLOT_COUNT * SLOT_MAX}</span></th>
      <th class="num">กลางภาค<br>/<input id="midMax" type="number" min="1" value="${mMax}" style="width:56px"></th><th class="num">รวม</th></tr>` +
     roster.map(s => {
       const sc = scoreMap[s.uid];
-      return `<tr data-uid="${s.uid}"><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>` +
+      return `<tr data-uid="${s.uid}"><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td class="grpCell">-</td>` +
         slots.map(i => `<td class="num"><input type="number" min="0" max="${SLOT_MAX}" step="0.5" class="sv" data-i="${i}" value="${sc?.s?.[i] ?? ""}"></td>`).join("") +
         `<td class="num sum"></td><td class="num"><input type="number" min="0" step="0.5" class="mid" value="${sc?.midterm ?? ""}"></td><td class="num tot"></td></tr>`;
     }).join("");
-  if (!roster.length) $("#scoreTable").insertAdjacentHTML("beforeend", `<tr><td colspan="17" class="muted">ยังไม่มีนักเรียนสมัครเข้าห้องนี้</td></tr>`);
+  if (!roster.length) $("#scoreTable").insertAdjacentHTML("beforeend", `<tr><td colspan="18" class="muted">ยังไม่มีนักเรียนสมัครเข้าห้องนี้</td></tr>`);
   $$("#scoreTable tr[data-uid]").forEach(recalcRow);
+  applyScoreView();
   $("#scoreTable").oninput = e => {
     const tr = e.target.closest("tr[data-uid]"); if (tr) recalcRow(tr);
     if (e.target.classList.contains("sv")) e.target.style.background = (+e.target.value > SLOT_MAX || +e.target.value < 0) ? "#fee2e2" : "";
@@ -572,13 +617,225 @@ $("#saveScores").onclick = async () => {
 };
 
 $("#exportScores").onclick = () => {
-  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", ...$$(".slotName").map(i => i.value), "รวมเก็บ", "กลางภาค", "รวม"];
+  const head = ["เลขที่", "รหัส", "ชื่อ", "นามสกุล", "ชื่อเล่น", "กลุ่ม", ...$$(".slotName").map(i => i.value), "รวมเก็บ", "กลางภาค", "รวม"];
   const rows = $$("#scoreTable tr[data-uid]").map(tr => {
     const s = roster.find(x => x.uid === tr.dataset.uid);
-    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, ...$$(".sv", tr).map(i => i.value), $(".sum", tr).textContent, $(".mid", tr).value, $(".tot", tr).textContent];
+    return [s.no, s.studentId, s.firstName, s.lastName, s.nickname, groupOf(s.uid)?.name || "", ...$$(".sv", tr).map(i => i.value), $(".sum", tr).textContent, $(".mid", tr).value, $(".tot", tr).textContent];
   });
   downloadCSV(`คะแนน_${sectionLabel(sec)}.csv`, [head, ...rows]);
 };
+
+/* ======================= กลุ่ม ======================= */
+const GROUP_MAX = 6, GROUP_MIN = 5;
+let groupsT = [], sheetsT = [], quizPts = {};
+const stuLabel = s => `${s.no}. ${s.firstName} (${s.nickname})`;
+const groupOf = uid => groupsT.find(g => (g.members || []).includes(uid));
+const gTotals = g => {
+  const quiz = (g.members || []).reduce((t, u) => t + (quizPts[u] || 0), 0);
+  const ws = sheetsT.reduce((t, w) => t + (Number(w.scores?.[g.id]) || 0), 0);
+  return { quiz, ws, total: quiz + ws };
+};
+const byThai = (a, b) => a.localeCompare(b, "th");
+$("#wsDate").value = todayStr();
+
+async function loadGroupsT() {
+  const mySec = sec;
+  try {
+    const [gs, ws, qa, si] = await Promise.all([
+      getDocs(query(collection(db, "groups"), where("sectionId", "==", mySec))),
+      getDocs(query(collection(db, "worksheets"), where("sectionId", "==", mySec))),
+      getDocs(query(collection(db, "quizAnswers"), where("sectionId", "==", mySec))),
+      getDoc(doc(db, "sections", mySec)),
+    ]);
+    if (mySec !== sec) return;
+    groupsT = gs.docs.map(d => ({ id: d.id, ...d.data() }));
+    sheetsT = ws.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.date || "").localeCompare(b.date || "") || (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0));
+    quizPts = {};
+    qa.forEach(d => { const a = d.data(); if (a.graded) quizPts[a.uid] = (quizPts[a.uid] || 0) + (Number(a.points) || 0); });
+    const info = si.exists() ? si.data() : {};
+    secInfo = { ...secInfo, groupsLocked: info.groupsLocked === true, groupAnnounce: info.groupAnnounce || "" };
+  } catch (err) {
+    if (mySec !== sec) return;
+    $("#gTable").innerHTML = `<tr><td style="color:var(--bad)">โหลดกลุ่มไม่ได้: ${esc(thError(err))} — ต้องอัปเดต Firestore Rules ก่อน</td></tr>`;
+    return;
+  }
+  $("#gAnn").value = secInfo.groupAnnounce;
+  renderGroupSettings(); renderGroupTable(); renderSheetTable(); renderPeople(); applyScoreView();
+}
+
+function renderGroupSettings() {
+  const locked = secInfo.groupsLocked;
+  $("#gLockState").innerHTML = `<p>${locked ? `🔒 <b>ล็อกกลุ่มแล้ว</b> — นักเรียนสร้าง เข้าร่วม หรือออกจากกลุ่มเองไม่ได้` : `🔓 <b>เปิดให้นักเรียนเลือกกลุ่ม</b> — สร้างกลุ่มพร้อมตั้งชื่อ หรือเข้าร่วมกลุ่มได้ (กลุ่มละไม่เกิน ${GROUP_MAX} คน)`}
+    <button class="sm ${locked ? "" : "ghost"}" id="gLock" type="button">${locked ? "🔓 ปลดล็อก" : "🔒 ล็อกกลุ่ม"}</button></p>
+    <p class="muted">${groupsT.length} กลุ่ม · มีกลุ่มแล้ว ${roster.filter(s => groupOf(s.uid)).length}/${roster.length} คน</p>`;
+  $("#gLock").onclick = async () => {
+    try { await setDoc(doc(db, "sections", sec), { groupsLocked: !locked }, { merge: true }); secInfo.groupsLocked = !locked; renderGroupSettings(); toast(!locked ? "ล็อกกลุ่มแล้ว" : "ปลดล็อกแล้ว"); }
+    catch (err) { toast(thError(err), "bad"); }
+  };
+}
+
+$("#gAnnSave").onclick = async () => {
+  const t = $("#gAnn").value.trim();
+  try { await setDoc(doc(db, "sections", sec), { groupAnnounce: t }, { merge: true }); secInfo.groupAnnounce = t; toast("บันทึกข้อความแล้ว"); }
+  catch (err) { toast(thError(err), "bad"); }
+};
+
+function sortedGroups() {
+  const list = groupsT.map(g => ({ g, t: gTotals(g) }));
+  return $("#gSort").value === "name"
+    ? list.sort((a, b) => byThai(a.g.name, b.g.name))
+    : list.sort((a, b) => b.t.total - a.t.total || byThai(a.g.name, b.g.name));
+}
+$("#gSort").onchange = () => renderGroupTable();
+
+function renderGroupTable() {
+  const rows = sortedGroups();
+  $("#gTable").innerHTML = `<tr><th class="num">อันดับ</th><th>กลุ่ม</th><th>สมาชิก (คะแนนตอบคำถาม)</th><th class="num">คน</th><th class="num">ตอบคำถาม</th><th class="num">ใบงาน</th><th class="num">รวม</th><th></th></tr>` +
+    rows.map(({ g, t }, i) => {
+      const rankOrder = [...groupsT].map(x => ({ id: x.id, v: gTotals(x).total })).sort((a, b) => b.v - a.v);
+      const rank = rankOrder.findIndex(x => x.id === g.id);
+      const n = g.members.length;
+      const mem = g.members.map(u => { const s = roster.find(x => x.uid === u); return `${esc(s ? stuLabel(s) : (g.names?.[u] || "?"))} <b>${quizPts[u] || 0}</b>`; }).join("<br>");
+      return `<tr><td class="num">${["🥇", "🥈", "🥉"][rank] || rank + 1}</td><td><b>${esc(g.name)}</b></td><td style="white-space:normal">${mem}</td>
+        <td class="num">${n}/${GROUP_MAX}${n < GROUP_MIN ? ` <span title="ไม่ถึง ${GROUP_MIN} คน">⚠️</span>` : ""}</td>
+        <td class="num">${t.quiz}</td><td class="num">${t.ws}</td><td class="num"><b>${t.total}</b></td>
+        <td><button class="sm ghost gRen" data-g="${g.id}">แก้ชื่อ</button> <button class="sm danger gDel" data-g="${g.id}">ลบ</button></td></tr>`;
+    }).join("") + (rows.length ? "" : `<tr><td colspan="8" class="muted">ยังไม่มีกลุ่ม — นักเรียนสร้างกลุ่มได้ในหน้านักเรียน แท็บ "กลุ่ม"</td></tr>`);
+  $$("#gTable .gRen").forEach(b => b.onclick = async () => {
+    const g = groupsT.find(x => x.id === b.dataset.g);
+    const name = (prompt("ชื่อกลุ่มใหม่", g.name) || "").trim();
+    if (!name || name === g.name) return;
+    if (groupsT.some(x => x.id !== g.id && x.name.trim().toLowerCase() === name.toLowerCase())) return toast("ชื่อนี้มีกลุ่มอื่นใช้แล้ว", "bad");
+    try { await updateDoc(doc(db, "groups", g.id), { name: name.slice(0, 40) }); toast("แก้ชื่อแล้ว"); loadGroupsT(); }
+    catch (err) { toast(thError(err), "bad"); }
+  });
+  $$("#gTable .gDel").forEach(b => b.onclick = async () => {
+    const g = groupsT.find(x => x.id === b.dataset.g);
+    if (!confirm(`ลบกลุ่ม "${g.name}"? สมาชิก ${g.members.length} คนจะกลับเป็นไม่มีกลุ่ม และคะแนนใบงานของกลุ่มนี้จะหาย`)) return;
+    const bt = writeBatch(db);
+    bt.delete(doc(db, "groups", g.id));
+    g.members.forEach(u => bt.delete(doc(db, "groupMembers", `${sec}_${u}`)));
+    sheetsT.filter(w => w.scores && g.id in w.scores).forEach(w => bt.update(doc(db, "worksheets", w.id), { [`scores.${g.id}`]: deleteField() }));
+    try { await bt.commit(); toast("ลบกลุ่มแล้ว"); loadGroupsT(); } catch (err) { toast(thError(err), "bad"); }
+  });
+}
+
+$("#gExport").onclick = () => {
+  const head = ["อันดับ", "กลุ่ม", "จำนวนคน", "สมาชิก", "คะแนนตอบคำถาม", ...sheetsT.map(w => `${w.title} (${w.date || ""})`), "รวมใบงาน", "รวม"];
+  const rank = [...groupsT].sort((a, b) => gTotals(b).total - gTotals(a).total);
+  const rows = sortedGroups().map(({ g, t }) => [rank.indexOf(g) + 1, g.name, g.members.length,
+    g.members.map(u => { const s = roster.find(x => x.uid === u); return s ? stuLabel(s) : (g.names?.[u] || "?"); }).join(", "),
+    t.quiz, ...sheetsT.map(w => w.scores?.[g.id] ?? ""), t.ws, t.total]);
+  downloadCSV(`คะแนนกลุ่ม_${sectionLabel(sec)}.csv`, [head, ...rows]);
+};
+
+/* ---------- ใบงาน ---------- */
+$("#wsAdd").onclick = async () => {
+  const title = $("#wsTitle").value.trim();
+  if (!title) return toast("ใส่ชื่อใบงานก่อน", "warn");
+  try {
+    await addDoc(collection(db, "worksheets"), { sectionId: sec, title, date: $("#wsDate").value || todayStr(), scores: {}, createdAt: serverTimestamp() });
+    $("#wsTitle").value = ""; toast("เพิ่มใบงานแล้ว กรอกคะแนนแต่ละกลุ่มในตารางได้เลย"); loadGroupsT();
+  } catch (err) { toast(thError(err) + " (อัปเดต Firestore Rules แล้วหรือยัง)", "bad"); }
+};
+
+function renderSheetTable() {
+  const groups = [...groupsT].sort((a, b) => byThai(a.name, b.name));
+  if (!sheetsT.length) { $("#wsTable").innerHTML = `<tr><td class="muted">ยังไม่มีใบงาน — เพิ่มใบงานด้านบน</td></tr>`; $("#wsSave").classList.add("hidden"); return; }
+  $("#wsSave").classList.remove("hidden");
+  $("#wsTable").innerHTML = `<tr><th>กลุ่ม</th>${sheetsT.map(w => `<th class="num">${esc(w.title)}<br><span class="muted">${w.date ? thDate(w.date) : ""}</span>
+      <button class="sm ghost wsDel" data-w="${w.id}" title="ลบใบงานนี้">✕</button></th>`).join("")}<th class="num">รวม</th></tr>` +
+    groups.map(g => `<tr data-g="${g.id}"><td>${esc(g.name)}</td>${sheetsT.map(w => `<td class="num"><input type="number" min="0" step="0.5" class="wsv" data-w="${w.id}" value="${w.scores?.[g.id] ?? ""}"></td>`).join("")}
+      <td class="num wsSum">${sheetsT.reduce((t, w) => t + (Number(w.scores?.[g.id]) || 0), 0)}</td></tr>`).join("") +
+    (groups.length ? "" : `<tr><td colspan="${sheetsT.length + 2}" class="muted">ยังไม่มีกลุ่ม</td></tr>`);
+  $("#wsTable").oninput = e => {
+    const tr = e.target.closest("tr[data-g]"); if (!tr) return;
+    $(".wsSum", tr).textContent = $$(".wsv", tr).reduce((t, i) => t + (Number(i.value) || 0), 0);
+  };
+  $$("#wsTable .wsDel").forEach(b => b.onclick = async () => {
+    const w = sheetsT.find(x => x.id === b.dataset.w);
+    if (!confirm(`ลบใบงาน "${w.title}" และคะแนนของทุกกลุ่มในใบงานนี้?`)) return;
+    try { await deleteDoc(doc(db, "worksheets", w.id)); toast("ลบแล้ว"); loadGroupsT(); } catch (err) { toast(thError(err), "bad"); }
+  });
+}
+
+$("#wsSave").onclick = async () => {
+  const bt = writeBatch(db);
+  sheetsT.forEach(w => {
+    const scores = {};
+    $$(`#wsTable .wsv[data-w="${w.id}"]`).forEach(i => {
+      const v = i.value === "" ? null : Number(i.value);
+      if (v !== null && !isNaN(v)) scores[i.closest("tr").dataset.g] = v;
+    });
+    bt.update(doc(db, "worksheets", w.id), { scores });
+  });
+  try { await bt.commit(); toast("บันทึกคะแนนใบงานแล้ว ✅"); loadGroupsT(); } catch (err) { toast(thError(err), "bad"); }
+};
+
+/* ---------- รายคน ---------- */
+function fillGroupFilter(sel) {
+  const cur = sel.value;
+  sel.innerHTML = `<option value="">ทุกคน</option><option value="-">ยังไม่มีกลุ่ม</option>` +
+    [...groupsT].sort((a, b) => byThai(a.name, b.name)).map(g => `<option value="${g.id}">กลุ่ม ${esc(g.name)}</option>`).join("");
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+}
+const passFilter = (uid, f) => !f || (f === "-" ? !groupOf(uid) : groupOf(uid)?.id === f);
+const groupKey = uid => groupOf(uid)?.name ?? "￿";
+
+$("#pSort").onchange = $("#pFilter").onchange = () => renderPeople();
+function renderPeople() {
+  fillGroupFilter($("#pFilter"));
+  const f = $("#pFilter").value, mode = $("#pSort").value;
+  const list = roster.filter(s => passFilter(s.uid, f)).sort((a, b) =>
+    mode === "total" ? (quizPts[b.uid] || 0) - (quizPts[a.uid] || 0) || a.no - b.no
+    : mode === "group" ? byThai(groupKey(a.uid), groupKey(b.uid)) || a.no - b.no
+    : a.no - b.no);
+  const opts = [...groupsT].sort((a, b) => byThai(a.name, b.name));
+  $("#pTable").innerHTML = `<tr><th class="num">เลขที่</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>กลุ่ม</th><th class="num">คะแนนตอบคำถาม</th></tr>` +
+    list.map(s => {
+      const g = groupOf(s.uid);
+      return `<tr><td class="num">${esc(s.no)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td>
+        <td><select class="pMove" data-u="${s.uid}" style="width:auto"><option value="">— ไม่มีกลุ่ม —</option>${opts.map(x =>
+          `<option value="${x.id}" ${g?.id === x.id ? "selected" : ""}>${esc(x.name)} (${x.members.length}/${GROUP_MAX})</option>`).join("")}</select></td>
+        <td class="num">${quizPts[s.uid] || 0}</td></tr>`;
+    }).join("") + (list.length ? "" : `<tr><td colspan="5" class="muted">ไม่มีนักเรียนตามที่เลือก</td></tr>`);
+  $$("#pTable .pMove").forEach(sel => sel.onchange = () => moveStudent(sel.dataset.u, sel.value, sel));
+}
+
+async function moveStudent(uid, toId, sel) {
+  const s = roster.find(x => x.uid === uid), from = groupOf(uid), to = groupsT.find(g => g.id === toId);
+  if (to && to.members.length >= GROUP_MAX) { toast(`กลุ่ม ${to.name} ครบ ${GROUP_MAX} คนแล้ว`, "bad"); sel.value = from?.id || ""; return; }
+  const bt = writeBatch(db);
+  if (from) {
+    const left = from.members.filter(u => u !== uid);
+    if (left.length) bt.update(doc(db, "groups", from.id), { members: left, [`names.${uid}`]: deleteField() });
+    else if (!confirm(`กลุ่ม ${from.name} จะไม่มีสมาชิกเหลือ ลบกลุ่มนี้ไปด้วยไหม? (กด ยกเลิก = เก็บกลุ่มว่างไว้)`)) bt.update(doc(db, "groups", from.id), { members: [], [`names.${uid}`]: deleteField() });
+    else bt.delete(doc(db, "groups", from.id));
+  }
+  if (to) {
+    bt.update(doc(db, "groups", to.id), { members: [...to.members, uid], [`names.${uid}`]: stuLabel(s) });
+    bt.set(doc(db, "groupMembers", `${sec}_${uid}`), { sectionId: sec, uid, groupId: to.id });
+  } else bt.delete(doc(db, "groupMembers", `${sec}_${uid}`));
+  try { await bt.commit(); toast(to ? `ย้าย ${s.firstName} ไปกลุ่ม ${to.name} แล้ว` : `เอา ${s.firstName} ออกจากกลุ่มแล้ว`); loadGroupsT(); }
+  catch (err) { toast(thError(err), "bad"); sel.value = from?.id || ""; }
+}
+
+/* ---------- คะแนนเก็บ: คอลัมน์กลุ่ม + เรียง/กรอง (ย้ายแถว ไม่ล้างค่าที่กรอกค้างไว้) ---------- */
+$("#scSort").onchange = $("#scFilter").onchange = () => applyScoreView();
+function applyScoreView() {
+  fillGroupFilter($("#scFilter"));
+  const table = $("#scoreTable"); if (!table) return;
+  $$("tr[data-uid]", table).forEach(tr => { const c = $(".grpCell", tr); if (c) c.textContent = groupOf(tr.dataset.uid)?.name || "-"; });
+  const f = $("#scFilter").value, mode = $("#scSort").value;
+  const rows = $$("tr[data-uid]", table);
+  const no = tr => roster.find(s => s.uid === tr.dataset.uid)?.no ?? 0;
+  const tot = tr => Number($(".tot", tr).textContent) || 0;
+  rows.sort((a, b) => mode === "total" ? tot(b) - tot(a) || no(a) - no(b)
+    : mode === "group" ? byThai(groupKey(a.dataset.uid), groupKey(b.dataset.uid)) || no(a) - no(b)
+    : no(a) - no(b));
+  const parent = rows[0]?.parentNode;
+  rows.forEach(tr => { parent.appendChild(tr); tr.classList.toggle("hidden", !passFilter(tr.dataset.uid, f)); });
+}
 
 /* ======================= ภาระงาน ======================= */
 const LINE_ON = !!LINE_API_URL;
