@@ -19,9 +19,11 @@
     <button data-tab="work" class="active">ภาระงาน</button>
     <button data-tab="scores">คะแนนของฉัน</button>
     <button data-tab="profile">ข้อมูลส่วนตัว</button>
+    <button data-tab="group">กลุ่ม</button>
   </div>
   <section id="tab-work"></section>
   <section id="tab-scores" class="hidden"></section>
+  <section id="tab-group" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
   <section id="tab-profile" class="hidden">
     <div class="card narrow" style="margin-top:0">
       <h2>ข้อมูลส่วนตัว</h2>
@@ -54,12 +56,13 @@
 <script type="module">
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, SECTIONS, SLOT_COUNT, SLOT_MAX,
   DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
-  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp } from "./js/common.js?v=5";
+  onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
+  runTransaction, deleteField } from "./js/common.js?v=5";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["work", "scores", "profile"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["work", "scores", "profile", "group"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
 });
 $("#pf_sections").innerHTML = SECTIONS.map(s =>
   `<label><input type="checkbox" value="${esc(s.id)}"> ${esc(s.subject)} — ${esc(s.room)}</label>`).join("");
@@ -126,6 +129,141 @@ async function loadAll() {
   renderScores(secIds, scores, secInfo);
   renderWork(asgs, scores);
   loadQuizScores(secIds);
+  loadGroups();
+}
+
+/* ---------- กลุ่ม ---------- */
+const GROUP_MAX = 6, GROUP_MIN = 5;
+const myLabel = () => `${me.no}. ${me.firstName} (${me.nickname})`;
+const medal = i => ["🥇", "🥈", "🥉"][i] || `${i + 1}.`;
+
+async function loadGroups() {
+  const secIds = me.sections || [];
+  let html = "";
+  for (const sid of secIds) {
+    try {
+      const [gs, ws, qa, si] = await Promise.all([
+        getDocs(query(collection(db, "groups"), where("sectionId", "==", sid))),
+        getDocs(query(collection(db, "worksheets"), where("sectionId", "==", sid))),
+        getDocs(query(collection(db, "quizAnswers"), where("sectionId", "==", sid), where("graded", "==", true))),
+        getDoc(doc(db, "sections", sid)),
+      ]);
+      const groups = gs.docs.map(d => ({ id: d.id, ...d.data() }));
+      const sheets = ws.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      const pts = {};
+      qa.forEach(d => { const a = d.data(); pts[a.uid] = (pts[a.uid] || 0) + (Number(a.points) || 0); });
+      const locked = si.exists() && si.data().groupsLocked === true;
+      html += renderSectionGroups(sid, groups, sheets, pts, locked);
+    } catch (err) {
+      html += `<div class="card"><h2>${esc(sectionLabel(sid))}</h2><p class="muted">ยังโหลดกลุ่มไม่ได้ (${esc(thError(err))}) — ให้แจ้งครู</p></div>`;
+    }
+  }
+  $("#tab-group").innerHTML = html || `<div class="card muted">ยังไม่ได้เลือกรายวิชา</div>`;
+  bindGroupButtons();
+}
+
+function groupTotals(g, sheets, pts) {
+  const quiz = (g.members || []).reduce((t, u) => t + (pts[u] || 0), 0);
+  const ws = sheets.reduce((t, w) => t + (Number(w.scores?.[g.id]) || 0), 0);
+  return { quiz, ws, total: quiz + ws };
+}
+
+function renderSectionGroups(sid, groups, sheets, pts, locked) {
+  const mine = groups.find(g => (g.members || []).includes(user.uid));
+  const nm = (g, u) => esc(g.names?.[u] || "นักเรียน");
+  let top = "";
+  if (mine) {
+    const t = groupTotals(mine, sheets, pts);
+    top = `<div class="alert ok"><b>กลุ่มของฉัน: ${esc(mine.name)}</b> · ${mine.members.length}/${GROUP_MAX} คน · คะแนนกลุ่ม <b>${t.total}</b>
+      <div style="margin-top:6px">${mine.members.map(u => `${nm(mine, u)} — ตอบคำถาม ${pts[u] || 0}`).join("<br>")}</div>
+      ${mine.members.length < GROUP_MIN ? `<div style="margin-top:6px">⚠️ กลุ่มต้องมีอย่างน้อย ${GROUP_MIN} คน ชวนเพื่อนเข้ากลุ่มเพิ่มนะ</div>` : ""}
+      ${locked ? "" : `<p style="margin:8px 0 0"><button class="sm danger gLeave" data-g="${mine.id}" data-s="${sid}">ออกจากกลุ่ม</button></p>`}</div>`;
+  } else if (locked) {
+    top = `<div class="alert warn">ครูล็อกการเลือกกลุ่มแล้ว คุณยังไม่มีกลุ่ม ให้แจ้งครู</div>`;
+  } else {
+    top = `<div class="alert warn">คุณยังไม่มีกลุ่ม — เลือกเข้าร่วมกลุ่มด้านล่าง หรือสร้างกลุ่มใหม่ (กลุ่มละ ${GROUP_MIN}–${GROUP_MAX} คน)</div>
+      <div class="row" style="margin-bottom:12px"><div><label>ชื่อกลุ่มใหม่</label><input class="gName" data-s="${sid}" maxlength="40" placeholder="ตั้งชื่อกลุ่ม (เปลี่ยนภายหลังได้โดยครูเท่านั้น)"></div>
+      <button class="gCreate" data-s="${sid}">➕ สร้างกลุ่ม</button></div>`;
+  }
+  const ranked = groups.map(g => ({ g, t: groupTotals(g, sheets, pts) }))
+    .sort((a, b) => b.t.total - a.t.total || a.g.name.localeCompare(b.g.name, "th"));
+  const rows = ranked.map(({ g, t }, i) => {
+    const full = g.members.length >= GROUP_MAX, isMine = mine && mine.id === g.id;
+    const join = !mine && !locked ? `<button class="sm gJoin" data-g="${g.id}" data-s="${sid}" ${full ? "disabled" : ""}>${full ? "เต็มแล้ว" : "เข้าร่วม"}</button>` : "";
+    const sheetTxt = sheets.length ? sheets.map(w => `${esc(w.title)}: ${w.scores?.[g.id] ?? "-"}`).join(" · ") : "-";
+    return `<tr${isMine ? ' style="background:var(--ok-soft)"' : ""}><td class="num">${medal(i)}</td>
+      <td style="white-space:normal"><b>${esc(g.name)}</b>${isMine ? " (กลุ่มของฉัน)" : ""}<br>
+        <span class="muted">${g.members.map(u => `${nm(g, u)} ${pts[u] || 0}`).join(", ")}</span></td>
+      <td class="num">${g.members.length}/${GROUP_MAX}</td><td class="num">${t.quiz}</td>
+      <td style="white-space:normal" class="muted">${sheetTxt}</td><td class="num"><b>${t.ws}</b></td><td class="num"><b>${t.total}</b></td><td>${join}</td></tr>`;
+  }).join("");
+  return `<div class="card"><h2>👥 กลุ่ม — ${esc(sectionLabel(sid))}${locked ? ' <span class="pill leave">ล็อกแล้ว</span>' : ""}</h2>${top}
+    <h3>🏆 อันดับคะแนนกลุ่ม</h3>
+    <p class="muted">คะแนนกลุ่ม = คะแนนตอบคำถามใน LINE ของสมาชิกทุกคนรวมกัน + คะแนนใบงานที่ครูให้</p>
+    <div class="table-wrap"><table><tr><th class="num">อันดับ</th><th>กลุ่ม / สมาชิก (คะแนนตอบคำถาม)</th><th class="num">คน</th><th class="num">ตอบคำถาม</th><th>ใบงาน</th><th class="num">รวมใบงาน</th><th class="num">รวม</th><th></th></tr>
+    ${rows || `<tr><td colspan="8" class="muted">ยังไม่มีกลุ่ม</td></tr>`}</table></div></div>`;
+}
+
+function bindGroupButtons() {
+  $$("#tab-group .gCreate").forEach(b => b.onclick = () => createGroup(b, b.dataset.s));
+  $$("#tab-group .gJoin").forEach(b => b.onclick = () => joinGroup(b, b.dataset.s, b.dataset.g));
+  $$("#tab-group .gLeave").forEach(b => b.onclick = () => leaveGroup(b, b.dataset.s, b.dataset.g));
+}
+
+async function groupAction(btn, fn, okMsg) {
+  btn.disabled = true;
+  try { await fn(); toast(okMsg); }
+  catch (err) { toast(err.userMsg || thError(err), "bad"); }
+  btn.disabled = false;
+  loadGroups();
+}
+const fail = msg => Object.assign(new Error(msg), { userMsg: msg });
+
+function createGroup(btn, sid) {
+  const name = $(`#tab-group .gName[data-s="${sid}"]`).value.trim();
+  if (!name) return toast("ตั้งชื่อกลุ่มก่อน", "warn");
+  groupAction(btn, async () => {
+    const same = await getDocs(query(collection(db, "groups"), where("sectionId", "==", sid)));
+    if (same.docs.some(d => d.data().name.trim().toLowerCase() === name.toLowerCase())) throw fail("ชื่อกลุ่มนี้มีแล้วในห้อง ลองชื่ออื่น");
+    const gRef = doc(collection(db, "groups"));
+    const mRef = doc(db, "groupMembers", `${sid}_${user.uid}`);
+    await runTransaction(db, async tx => {
+      if ((await tx.get(mRef)).exists()) throw fail("คุณมีกลุ่มอยู่แล้วในวิชานี้");
+      tx.set(gRef, { sectionId: sid, name, members: [user.uid], names: { [user.uid]: myLabel() }, createdBy: user.uid, createdAt: serverTimestamp() });
+      tx.set(mRef, { sectionId: sid, uid: user.uid, groupId: gRef.id });
+    });
+  }, `สร้างกลุ่ม "${name}" แล้ว ชวนเพื่อนกดเข้าร่วมได้เลย`);
+}
+
+function joinGroup(btn, sid, gid) {
+  groupAction(btn, async () => {
+    const gRef = doc(db, "groups", gid), mRef = doc(db, "groupMembers", `${sid}_${user.uid}`);
+    await runTransaction(db, async tx => {
+      const [g, m] = [await tx.get(gRef), await tx.get(mRef)];
+      if (!g.exists()) throw fail("กลุ่มนี้ถูกลบไปแล้ว");
+      if (m.exists()) throw fail("คุณมีกลุ่มอยู่แล้วในวิชานี้");
+      const members = g.data().members || [];
+      if (members.length >= GROUP_MAX) throw fail(`กลุ่มนี้ครบ ${GROUP_MAX} คนแล้ว`);
+      tx.update(gRef, { members: [...members, user.uid], [`names.${user.uid}`]: myLabel() });
+      tx.set(mRef, { sectionId: sid, uid: user.uid, groupId: gid });
+    });
+  }, "เข้าร่วมกลุ่มแล้ว");
+}
+
+function leaveGroup(btn, sid, gid) {
+  if (!confirm("ออกจากกลุ่มนี้? คะแนนตอบคำถามของคุณจะไม่ถูกนับให้กลุ่มนี้แล้ว")) return;
+  groupAction(btn, async () => {
+    const gRef = doc(db, "groups", gid), mRef = doc(db, "groupMembers", `${sid}_${user.uid}`);
+    await runTransaction(db, async tx => {
+      const g = await tx.get(gRef);
+      if (g.exists()) {
+        const members = (g.data().members || []).filter(u => u !== user.uid);
+        if (!members.length) tx.delete(gRef);
+        else tx.update(gRef, { members, [`names.${user.uid}`]: deleteField() });
+      }
+      tx.delete(mRef);
+    });
+  }, "ออกจากกลุ่มแล้ว");
 }
 
 /* ---------- คะแนนตอบคำถาม ---------- */
