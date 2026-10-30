@@ -274,7 +274,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, s
   isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
   onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN, deleteField } from "./js/common.js?v=5";
-import { CHAPTERS } from "./js/chapters.js?v=1";
+import { CHAPTERS } from "./js/chapters.js?v=2";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
