@@ -20,10 +20,12 @@
     <button data-tab="scores">คะแนนของฉัน</button>
     <button data-tab="profile">ข้อมูลส่วนตัว</button>
     <button data-tab="group">กลุ่ม</button>
+    <button data-tab="chq">คำถามท้ายบท</button>
   </div>
   <section id="tab-work"></section>
   <section id="tab-scores" class="hidden"></section>
   <section id="tab-group" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
+  <section id="tab-chq" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
   <section id="tab-profile" class="hidden">
     <div class="card narrow" style="margin-top:0">
       <h2>ข้อมูลส่วนตัว</h2>
@@ -58,11 +60,12 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, S
   DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
   runTransaction, deleteField } from "./js/common.js?v=5";
+import { CHAPTERS } from "./js/chapters.js?v=1";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["work", "scores", "profile", "group"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["work", "scores", "profile", "group", "chq"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
 });
 $("#pf_sections").innerHTML = SECTIONS.map(s =>
   `<label><input type="checkbox" value="${esc(s.id)}"> ${esc(s.subject)} — ${esc(s.room)}</label>`).join("");
@@ -130,6 +133,31 @@ async function loadAll() {
   renderWork(asgs, scores);
   loadQuizScores(secIds);
   loadGroups();
+  loadChapters();
+}
+
+/* ---------- คำถามท้ายบท ---------- */
+async function loadChapters() {
+  const list = CHAPTERS.filter(c => !c.sections || c.sections.some(id => me.sections.includes(id)));
+  if (!list.length) { $("#tab-chq").innerHTML = `<div class="card muted">ยังไม่มีคำถามท้ายบท</div>`; return; }
+  const cards = await Promise.all(list.map(async c => {
+    let a = null;
+    try { const d = await getDoc(doc(db, "chapterAttempts", `${user.uid}_${c.id}`)); a = d.exists() ? d.data() : null; } catch (e) {}
+    const n = c.stages.reduce((t, s) => t + s.items.length, 0);
+    let state, btn;
+    if (!a) { state = `<span class="pill leave">ยังไม่ได้ทำ</span>`; btn = "เริ่มทำ"; }
+    else if (a.status === "doing") { state = `<span class="pill late">ทำค้างไว้ · ออกจากหน้าแล้ว ${a.violations || 0}/${c.maxLeaves} ครั้ง</span>`; btn = "ทำต่อ"; }
+    else {
+      state = `<span class="pill ${a.status === "locked" ? "absent" : "present"}">${a.status === "locked" ? "ส่งอัตโนมัติ" : "ส่งแล้ว"} · ${a.score ?? 0}/${a.max ?? n} คะแนน · ${a.xp || 0} XP</span>`;
+      btn = "ดูผล";
+    }
+    return `<div class="assign ${a ? (a.status === "doing" ? "soon" : "done") : "pending"}">
+      <div class="t">${esc(c.title)} <span class="muted">· ${esc(c.subtitle || "")} · ${c.stages.length} ด่าน ${n} ข้อ</span></div>
+      <div style="margin:8px 0">${state}</div>
+      <a class="btn" href="chapter.html?ch=${encodeURIComponent(c.id)}">${btn}</a></div>`;
+  }));
+  $("#tab-chq").innerHTML = `<div class="card"><h2>📘 คำถามท้ายบท</h2>
+    <p class="muted">เมื่อกดเข้าทำแล้ว ห้ามออกจากหน้า ห้ามสลับแอป และห้ามแคปหน้าจอ ระบบจะบันทึกให้ครูเห็นทุกครั้ง</p>${cards.join("")}</div>`;
 }
 
 /* ---------- กลุ่ม ---------- */
