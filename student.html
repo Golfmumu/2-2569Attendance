@@ -140,9 +140,11 @@ async function loadAll() {
 async function loadChapters() {
   const list = CHAPTERS.filter(c => !c.sections || c.sections.some(id => me.sections.includes(id)));
   if (!list.length) { $("#tab-chq").innerHTML = `<div class="card muted">ยังไม่มีคำถามท้ายบท</div>`; return; }
+  const scoreCards = [];
   const cards = await Promise.all(list.map(async c => {
     let a = null;
     try { const d = await getDoc(doc(db, "chapterAttempts", `${user.uid}_${c.id}`)); a = d.exists() ? d.data() : null; } catch (e) {}
+    if (a) scoreCards.push(chapterScoreCard(c, a));
     const n = c.stages.reduce((t, s) => t + s.items.length, 0);
     let state, btn;
     if (!a) { state = `<span class="pill leave">ยังไม่ได้ทำ</span>`; btn = "เริ่มทำ"; }
@@ -158,6 +160,29 @@ async function loadChapters() {
   }));
   $("#tab-chq").innerHTML = `<div class="card"><h2>📘 คำถามท้ายบท</h2>
     <p class="muted">เมื่อกดเข้าทำแล้ว ห้ามออกจากหน้า ห้ามสลับแอป และห้ามแคปหน้าจอ ระบบจะบันทึกให้ครูเห็นทุกครั้ง</p>${cards.join("")}</div>`;
+  $$("#tab-scores .chqScore").forEach(el => el.remove());
+  $("#tab-scores").insertAdjacentHTML("beforeend", scoreCards.join(""));
+}
+
+// การ์ดคะแนนคำถามท้ายบทในแท็บ "คะแนนของฉัน"
+function chapterScoreCard(c, a) {
+  const ans = a.answers || {};
+  const rows = c.stages.map((s, i) => {
+    const got = s.items.reduce((t, it) => t + (ans[it.id]?.p || 0), 0);
+    const done = s.items.filter(it => ans[it.id]).length;
+    return `<tr><td>${s.boss ? "ด่านบอส" : "ด่าน " + (i + 1)} · ${esc(s.name)}</td>
+      <td class="num">${done ? got : "-"}</td><td class="num">${s.items.length}</td></tr>`;
+  }).join("");
+  const max = a.max ?? c.stages.reduce((t, s) => t + s.items.length, 0);
+  const st = a.status === "doing" ? `<span class="pill late">ยังทำไม่เสร็จ</span>`
+    : a.status === "locked" ? `<span class="pill absent">ส่งอัตโนมัติ (ออกจากหน้าครบ)</span>` : `<span class="pill present">ส่งแล้ว</span>`;
+  return `<div class="card chqScore"><h2>📘 คะแนนคำถามท้ายบท — ${esc(c.title)} ${st}</h2>
+    <div class="stats">
+      <div class="stat present"><b>${a.score ?? 0}</b>คะแนน / ${max}</div>
+      <div class="stat leave"><b>${a.xp || 0}</b>XP</div>
+      <div class="stat ${a.violations ? "absent" : "present"}"><b>${a.violations || 0}</b>ออกจากหน้า (ครั้ง)</div>
+    </div>
+    <div class="table-wrap"><table><tr><th>ด่าน</th><th class="num">ได้</th><th class="num">เต็ม</th></tr>${rows}</table></div></div>`;
 }
 
 /* ---------- กลุ่ม ---------- */
