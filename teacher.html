@@ -34,6 +34,7 @@
     <button data-tab="work">ภาระงาน</button>
     <button data-tab="quiz">ตอบคำถาม</button>
     <button data-tab="grp">กลุ่ม</button>
+    <button data-tab="chq">คำถามท้ายบท</button>
     <button data-tab="rep">สรุปการมาเรียน</button>
     <button data-tab="stu">รายชื่อนักเรียน</button>
   </div>
@@ -180,6 +181,20 @@
     </div>
   </section>
 
+  <!-- ============ คำถามท้ายบท ============ -->
+  <section id="tab-chq" class="hidden">
+    <div class="card">
+      <div class="row" style="align-items:end">
+        <div><label>ชุดคำถาม</label><select id="chqSel"></select></div>
+        <a class="btn ghost" id="chqPreview" target="_blank" rel="noopener">▶️ ลองทำ (โหมดครู ไม่บันทึก)</a>
+        <button class="ghost" id="chqReload" type="button">🔄 โหลดใหม่</button>
+        <button class="ghost" id="chqExport" type="button">ดาวน์โหลด CSV</button>
+      </div>
+      <p class="muted" id="chqSummary"></p>
+      <div class="table-wrap"><table id="chqTable"></table></div>
+    </div>
+  </section>
+
   <!-- ============ กลุ่ม ============ -->
   <section id="tab-grp" class="hidden">
     <div class="card">
@@ -259,6 +274,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, s
   isTeacherEmail, SECTIONS, SLOT_COUNT, SLOT_MAX, DEFAULT_MIDTERM_MAX, QR_ROTATE_SECONDS,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
   onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN, deleteField } from "./js/common.js?v=5";
+import { CHAPTERS } from "./js/chapters.js?v=1";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
@@ -268,8 +284,9 @@ let pending = {}; // การเปลี่ยนสถานะที่ย�
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["att", "score", "work", "quiz", "grp", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["att", "score", "work", "quiz", "grp", "chq", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
   if (b.dataset.tab === "rep") loadReport();
+  if (b.dataset.tab === "chq") loadChq();
 });
 $("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
 $("#as_slot").innerHTML = `<option value="">ไม่ผูก</option>` + Array.from({ length: SLOT_COUNT }, (_, i) => `<option value="${i}">ช่องที่ ${i + 1}</option>`).join("");
@@ -284,7 +301,7 @@ let lastSec = "";
 $("#secSel").onfocus = e => { lastSec = e.target.value; };
 $("#secSel").onchange = e => {
   if (!confirmDiscard()) { e.target.value = lastSec; return; }
-  lastSec = e.target.value; try { localStorage.setItem("cc_sec", e.target.value); } catch (x) {} selectSection(e.target.value); };
+  lastSec = e.target.value; try { localStorage.setItem("cc_sec", e.target.value); } catch (x) {} selectSection(e.target.value).then(() => { if (!$("#tab-chq").classList.contains("hidden")) loadChq(); }); };
 
 async function selectSection(id) {
   sec = id;
@@ -1312,6 +1329,59 @@ function renderStudents() {
     catch (e) { toast(thError(e), "bad"); }
   });
 }
+
+/* ============ คำถามท้ายบท ============ */
+$("#chqSel").innerHTML = CHAPTERS.map(c => `<option value="${esc(c.id)}">${esc(c.title)}</option>`).join("");
+$("#chqSel").onchange = loadChq;
+$("#chqReload").onclick = loadChq;
+let chqRows = [];
+async function loadChq() {
+  const c = CHAPTERS.find(x => x.id === $("#chqSel").value);
+  if (!c) return;
+  $("#chqPreview").href = `chapter.html?ch=${encodeURIComponent(c.id)}`;
+  $("#chqTable").innerHTML = `<tr><td class="muted">กำลังโหลด…</td></tr>`;
+  let at = {};
+  try {
+    const snap = await getDocs(query(collection(db, "chapterAttempts"), where("sectionIds", "array-contains", sec)));
+    snap.forEach(d => { const a = d.data(); if (a.chapterId === c.id) at[a.uid] = { id: d.id, ...a }; });
+  } catch (err) {
+    $("#chqTable").innerHTML = `<tr><td class="muted">โหลดไม่ได้: ${esc(thError(err))} (ตรวจว่าเพิ่ม Rules ของ chapterAttempts แล้ว)</td></tr>`;
+    return;
+  }
+  const ST = { doing: ["late", "กำลังทำ"], done: ["present", "ส่งแล้ว"], locked: ["absent", "ส่งอัตโนมัติ (ออกจากหน้าครบ)"] };
+  chqRows = roster.map(s => ({ s, a: at[s.uid] }));
+  const done = chqRows.filter(r => r.a && r.a.status !== "doing");
+  const avg = done.length ? (done.reduce((t, r) => t + (r.a.score || 0), 0) / done.length).toFixed(1) : "-";
+  const max = c.stages.reduce((t, s) => t + s.items.length, 0);
+  $("#chqSummary").textContent = `ส่งแล้ว ${done.length}/${roster.length} คน · กำลังทำ ${chqRows.filter(r => r.a?.status === "doing").length} คน · คะแนนเฉลี่ย ${avg}/${max} · ออกจากหน้าอย่างน้อย 1 ครั้ง ${chqRows.filter(r => (r.a?.violations || 0) > 0).length} คน`;
+  $("#chqTable").innerHTML = `<tr><th class="num">เลขที่</th><th>รหัส</th><th>ชื่อ</th><th>สถานะ</th><th class="num">คะแนน</th><th class="num">XP</th><th>ออกจากหน้า</th><th>ส่งเมื่อ</th><th></th></tr>` +
+    chqRows.map(({ s, a }) => {
+      const st = a ? ST[a.status] || ["leave", a.status] : ["leave", "ยังไม่ทำ"];
+      const log = (a?.violationLog || []).map(v => `${new Date(v.at).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" })} ${esc(v.type)}`).join("<br>");
+      return `<tr${(a?.violations || 0) > 0 ? ' style="background:#fff7d6"' : ""}><td class="num">${esc(s.no ?? "")}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))} (${esc(s.nickname || "")})</td>
+        <td><span class="pill ${st[0]}">${esc(st[1])}</span></td>
+        <td class="num">${a ? `${a.score ?? 0}/${a.max ?? max}` : "-"}</td><td class="num">${a ? a.xp || 0 : "-"}</td>
+        <td style="white-space:normal">${a ? `<b>${a.violations || 0}</b> ครั้ง${log ? `<div class="muted">${log}</div>` : ""}` : "-"}</td>
+        <td>${a?.submittedAt ? thDate(a.submittedAt, true) : "-"}</td>
+        <td>${a ? `<button class="sm danger chqReset" data-id="${esc(a.id)}" data-n="${esc(fullName(s))}">รีเซ็ต</button>` : ""}</td></tr>`;
+    }).join("");
+  $$("#chqTable .chqReset").forEach(b => b.onclick = async () => {
+    if (!confirm(`รีเซ็ตคำถามท้ายบทของ ${b.dataset.n}? คำตอบและคะแนนเดิมจะถูกลบ และนักเรียนเริ่มทำใหม่ได้`)) return;
+    b.disabled = true;
+    try { await deleteDoc(doc(db, "chapterAttempts", b.dataset.id)); toast("รีเซ็ตแล้ว"); loadChq(); }
+    catch (err) { toast(thError(err), "bad"); b.disabled = false; }
+  });
+}
+$("#chqExport").onclick = () => {
+  const c = CHAPTERS.find(x => x.id === $("#chqSel").value);
+  const items = c.stages.flatMap(s => s.items);
+  downloadCSV(`คำถามท้ายบท_${c.title}_${sectionLabel(sec)}.csv`, [
+    ["เลขที่", "รหัส", "ชื่อ-สกุล", "ชื่อเล่น", "สถานะ", "คะแนน", "เต็ม", "XP", "ออกจากหน้า (ครั้ง)", "รายละเอียดการออกจากหน้า", ...items.map(i => i.label)],
+    ...chqRows.map(({ s, a }) => [s.no ?? "", s.studentId, fullName(s), s.nickname || "", a ? a.status : "ยังไม่ทำ", a?.score ?? "", a?.max ?? items.length, a?.xp ?? "",
+      a?.violations ?? "", (a?.violationLog || []).map(v => `${new Date(v.at).toLocaleTimeString("th-TH")} ${v.type}`).join(" | "),
+      ...items.map(i => a?.answers?.[i.id] ? a.answers[i.id].p : "")]),
+  ]);
+};
 </script>
 </body>
 </html>
