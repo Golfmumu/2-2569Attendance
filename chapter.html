@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>คำถามท้ายบท</title>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;700&family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --g-bg:#0F1B2D; --g-card:#172A44; --g-deep:#13233A; --g-line:#2C4466; --g-text:#F4F1E8; --g-muted:#A9B8CC;
+          --g-dim:#8296B2; --g-yellow:#FFC93C; --g-green:#3DDC97; --g-red:#FF8F8F; --g-orange:#FF8A3D; --g-blue:#4FB3FF; }
+  html, body { background: var(--g-bg); color: var(--g-text); }
+  body { min-height: 100vh; font-family: "Sarabun", system-ui, sans-serif;
+         -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input { -webkit-user-select: text; user-select: text; }
+  .k { font-family: "Kanit", "Sarabun", sans-serif; }
+  #app { max-width: 1000px; margin: 0 auto; padding: 20px 16px 120px; position: relative; z-index: 1; }
+  #wm { position: fixed; inset: 0; z-index: 5; pointer-events: none; background-repeat: repeat; }
+  body.covered #app { visibility: hidden; }
+  #shield { display: none; position: fixed; inset: 0; z-index: 20; background: var(--g-bg); align-items: center; justify-content: center; padding: 24px; }
+  body.covered #shield { display: flex; }
+  .box { background: var(--g-card); border-radius: 20px; padding: 24px; margin-bottom: 16px; }
+  .hud { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  .hud h1 { margin: 0; font-size: 1.7rem; line-height: 1.2; }
+  .hud .sub { color: var(--g-muted); font-size: .95rem; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { background: var(--g-card); border-radius: 12px; padding: 6px 14px; text-align: center; min-width: 64px; }
+  .chip small { display: block; color: var(--g-muted); font-size: .78rem; }
+  .chip b { font-family: "Kanit", sans-serif; font-weight: 500; font-size: 1.25rem; }
+  .stages { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+  .stage { background: var(--g-card); border-radius: 18px; padding: 18px; display: flex; flex-direction: column; gap: 8px; border: 2px solid transparent; }
+  .stage.done { border-color: var(--g-green); }
+  .stage.cur { border-color: var(--g-yellow); }
+  .stage.lock { background: var(--g-deep); border: 2px dashed var(--g-line); color: var(--g-muted); }
+  .stage .tag { font-family: "Kanit", sans-serif; font-size: .9rem; }
+  .stage h3 { margin: 0; font-family: "Kanit", sans-serif; font-size: 1.35rem; }
+  .stage p { margin: 0; color: var(--g-muted); font-size: .95rem; line-height: 1.5; }
+  .stars { color: var(--g-yellow); letter-spacing: 3px; }
+  .gbtn { font-family: "Kanit", sans-serif; font-weight: 700; font-size: 1.1rem; min-height: 50px; border-radius: 12px; border: none;
+          background: var(--g-yellow); color: var(--g-bg); padding: 0 22px; cursor: pointer; }
+  .gbtn.line { background: transparent; border: 2px solid var(--g-yellow); color: var(--g-yellow); font-weight: 500; }
+  .gbtn:disabled { opacity: .45; cursor: not-allowed; }
+  .prog { display: flex; gap: 6px; flex-wrap: wrap; }
+  .prog span { width: 26px; height: 7px; border-radius: 4px; background: var(--g-line); }
+  .prog .ok { background: var(--g-green); } .prog .half { background: var(--g-yellow); } .prog .no { background: #FF6B6B; } .prog .now { background: var(--g-text); }
+  .ctx { background: var(--g-bg); border-radius: 14px; padding: 14px 16px; color: #C9D4E3; white-space: pre-line; line-height: 1.6; margin-bottom: 14px; }
+  .qlabel { color: var(--g-muted); font-family: "Kanit", sans-serif; }
+  .qtext { font-family: "Kanit", sans-serif; font-weight: 500; font-size: 1.35rem; line-height: 1.6; margin: 6px 0 18px; }
+  .choices { display: grid; gap: 10px; }
+  .choices.two { grid-template-columns: 1fr 1fr; }
+  .choice { text-align: left; background: var(--g-bg); color: var(--g-text); border: 2px solid var(--g-line); border-radius: 14px; padding: 14px 16px;
+            font: 500 1.08rem/1.5 "Sarabun", sans-serif; min-height: 56px; cursor: pointer; }
+  .choices.two .choice { text-align: center; font-family: "Kanit", sans-serif; font-size: 1.5rem; min-height: 76px; }
+  .choice:hover:not(:disabled) { border-color: var(--g-yellow); }
+  .choice.pick { border-color: var(--g-yellow); background: #2a2a1e; }
+  .choice:disabled { cursor: default; }
+  .numrow { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .numrow input { flex: 1 1 160px; height: 60px; border-radius: 12px; border: 2px solid var(--g-line); background: var(--g-bg); color: var(--g-text);
+                  font: 500 1.6rem "Kanit", sans-serif; text-align: center; }
+  .units { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .unit { background: var(--g-bg); color: var(--g-text); border: 2px solid var(--g-line); border-radius: 10px; padding: 10px 14px; font: 500 1rem "Kanit", sans-serif; min-height: 46px; cursor: pointer; }
+  .unit.pick { border-color: var(--g-yellow); color: var(--g-yellow); }
+  .fb { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; border-radius: 16px; padding: 16px 18px; margin-top: 16px; }
+  .fb.ok { background: #1E3A33; } .fb.no { background: #3A2030; } .fb.half { background: #3a321c; }
+  .fb .v { font-family: "Kanit", sans-serif; font-weight: 700; font-size: 1.3rem; }
+  .fb.ok .v { color: var(--g-green); } .fb.no .v { color: var(--g-red); } .fb.half .v { color: var(--g-yellow); }
+  .fb .msg { flex: 1 1 200px; }
+  .hp { height: 14px; border-radius: 8px; background: var(--g-bg); overflow: hidden; }
+  .hp > div { height: 100%; background: var(--g-orange); transition: width .5s; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; }
+  .badge { padding: 8px 14px; border-radius: 999px; background: #1E3A33; color: var(--g-green); }
+  .badge.off { background: var(--g-deep); color: var(--g-dim); }
+  .rules li { margin: 6px 0; line-height: 1.6; }
+  .warnbox { max-width: 520px; text-align: center; }
+  .warnbox h2 { font-family: "Kanit", sans-serif; color: var(--g-red); font-size: 1.8rem; margin: 0 0 8px; }
+  .muted2 { color: var(--g-muted); }
+  .center { text-align: center; }
+  .big { font-family: "Kanit", sans-serif; font-weight: 700; font-size: 2.6rem; margin: 4px 0; }
+  .stat2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin: 16px 0; }
+  .stat2 > div { background: var(--g-bg); border-radius: 14px; padding: 14px; text-align: center; }
+  .stat2 b { display: block; font-family: "Kanit", sans-serif; font-size: 1.8rem; color: var(--g-yellow); }
+  .rev { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--g-line); }
+  a { color: var(--g-yellow); }
+  @media (max-width: 560px) { .qtext { font-size: 1.15rem; } .choices.two .choice { font-size: 1.25rem; min-height: 64px; } .hud h1 { font-size: 1.4rem; } }
+  @media print { body { display: none !important; } }
+</style>
+</head>
+<body>
+<div id="wm" aria-hidden="true"></div>
+<div id="app"><div class="box center muted2">กำลังโหลด…</div></div>
+<div id="shield"><div class="box warnbox" id="shieldBox"><p class="muted2">ซ่อนข้อสอบชั่วคราว</p></div></div>
+
+<script type="module">
+import { auth, db, $, esc, toast, thError, thDate, isTeacherEmail,
+  onAuthStateChanged, doc, getDoc, setDoc, updateDoc, serverTimestamp, arrayUnion } from "./js/common.js?v=5";
+import { CHAPTERS, CH_SALT } from "./js/chapters.js?v=1";
+
+const app = $("#app");
+const chId = new URLSearchParams(location.search).get("ch");
+const ch = CHAPTERS.find(c => c.id === chId);
+const ITEMS = ch ? ch.stages.flatMap((s, si) => s.items.map(it => ({ ...it, si }))) : [];
+
+let user, me, preview = false, ref = null;
+let answers = {}, xp = 0, leaves = 0, status = null;
+let curStage = 0, curIdx = 0, combo = 0;
+let guardOn = false, warnOpen = false, lastLeave = 0, wantFs = false;
+
+/* ---------------- เริ่มต้น ---------------- */
+if (!ch) app.innerHTML = `<div class="box center">ไม่พบชุดคำถามนี้ <p><a href="student.html">กลับหน้านักเรียน</a></p></div>`;
+else onAuthStateChanged(auth, async u => {
+  if (!u) return location.replace("index.html");
+  user = u;
+  preview = isTeacherEmail(u.email);
+  try {
+    if (preview) {
+      me = { studentId: "ครู", firstName: "โหมดทดลอง", lastName: "", nickname: "ครู" };
+    } else {
+      const s = await getDoc(doc(db, "students", u.uid));
+      if (!s.exists() || !s.data().sections?.length) return location.replace("student.html");
+      me = s.data();
+      if (ch.sections && !ch.sections.some(id => me.sections.includes(id))) {
+        app.innerHTML = `<div class="box center">ชุดคำถามนี้ไม่ได้เปิดให้ห้องของคุณ <p><a href="student.html">กลับหน้านักเรียน</a></p></div>`;
+        return;
+      }
+      ref = doc(db, "chapterAttempts", `${u.uid}_${ch.id}`);
+      const a = await getDoc(ref);
+      if (a.exists()) {
+        const d = a.data();
+        answers = d.answers || {}; xp = d.xp || 0; leaves = d.violations || 0; status = d.status;
+        if (status === "doing") {
+          // กลับเข้ามาหลังจากปิด/รีโหลดหน้า = นับเป็นการออกจากหน้า 1 ครั้ง
+          await addLeave("ปิดหรือรีโหลดหน้าข้อสอบ");
+          if (leaves >= ch.maxLeaves) return finish("locked");
+        }
+      }
+    }
+  } catch (err) {
+    app.innerHTML = `<div class="box center">โหลดข้อมูลไม่ได้: ${esc(thError(err))}<p><a href="student.html">กลับหน้านักเรียน</a></p></div>`;
+    return;
+  }
+  watermark(); setInterval(watermark, 30000);
+  if (status === "done" || status === "locked") return renderResult();
+  renderIntro();
+});
+
+/* ---------------- ลายน้ำชื่อนักเรียน ---------------- */
+function watermark() {
+  const t = new Date().toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  const line = `${me.studentId} ${me.firstName} ${me.lastName || ""} ${t}`;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='340' height='170'><text x='20' y='100' transform='rotate(-20 170 85)' ` +
+    `font-family='Sarabun, sans-serif' font-size='17' fill='rgba(255,255,255,0.10)'>${esc(line)}</text></svg>`;
+  $("#wm").style.backgroundImage = `url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}")`;
+}
+
+/* ---------------- ตรวจคำตอบด้วยรหัส ---------------- */
+async function hk(id, ans) {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${CH_SALT}|${ch.id}|${id}|${ans}`));
+  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
+}
+function normNum(v) {
+  const n = Number(String(v).replace(/[,\s]/g, ""));
+  return Number.isFinite(n) ? String(n) : null;
+}
+
+/* ---------------- คะแนน ---------------- */
+function stageStat(si) {
+  const items = ch.stages[si].items;
+  const got = items.reduce((t, it) => t + (answers[it.id]?.p || 0), 0);
+  const done = items.filter(it => answers[it.id]).length;
+  return { got, max: items.length, done, complete: done === items.length };
+}
+function starsOf(si) {
+  const s = stageStat(si);
+  if (!s.complete) return 0;
+  const r = s.got / s.max;
+  return r >= 0.9 ? 3 : r >= 0.6 ? 2 : 1;
+}
+const starTxt = n => "★".repeat(n) + "☆".repeat(3 - n);
+function totals() {
+  const score = ITEMS.reduce((t, it) => t + (answers[it.id]?.p || 0), 0);
+  return { score, max: ITEMS.length };
+}
+function firstOpenStage() {
+  const i = ch.stages.findIndex((_, si) => !stageStat(si).complete);
+  return i === -1 ? ch.stages.length : i;
+}
+
+async function save(extra = {}) {
+  if (preview || !ref) return;
+  const t = totals();
+  try {
+    await updateDoc(ref, { answers, xp, score: t.score, max: t.max, updatedAt: serverTimestamp(), ...extra });
+  } catch (err) { toast("บันทึกไม่สำเร็จ: " + thError(err) + " — ระบบจะลองใหม่ในข้อถัดไป", "bad"); }
+}
+
+/* ---------------- หน้ากติกา ---------------- */
+function hud(title, sub) {
+  const t = totals();
+  return `<div class="hud"><div><h1 class="k">${esc(title)}</h1><div class="sub">${esc(sub)}</div></div>
+    <div class="chips"><div class="chip"><small>XP</small><b>${xp}</b></div>
+    <div class="chip"><small>คะแนน</small><b>${t.score}/${t.max}</b></div>
+    <div class="chip"><small>ออกจากหน้า</small><b style="color:${leaves ? "var(--g-red)" : "inherit"}">${leaves}/${ch.maxLeaves}</b></div></div></div>`;
+}
+
+function renderIntro() {
+  const resume = status === "doing";
+  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle)}
+    <div class="box">
+      ${preview ? `<div class="fb half" style="margin:0 0 14px"><span class="msg">👩‍🏫 โหมดทดลองของครู — ไม่บันทึกคะแนน แต่ระบบกันทุจริตทำงานเหมือนนักเรียน</span></div>` : ""}
+      ${resume ? `<div class="fb no" style="margin:0 0 14px"><span class="msg">คุณออกจากหน้าข้อสอบไปแล้ว <b>${leaves}</b> ครั้ง จาก ${ch.maxLeaves} ครั้ง ถ้าออกอีกจนครบ ระบบจะส่งคำตอบทันที</span></div>` : ""}
+      <h2 class="k" style="margin:0 0 6px">กติกาก่อนเริ่ม</h2>
+      <ol class="rules">
+        <li>มี ${ch.stages.length} ด่าน รวม ${ITEMS.length} ข้อ ต้องผ่านทีละด่านตามลำดับ</li>
+        <li>แต่ละข้อตอบได้ <b>ครั้งเดียว</b> ตอบติดกัน 3 ข้อขึ้นไปได้โบนัสคอมโบ</li>
+        <li>เมื่อกดเริ่ม หน้าจอจะขยายเต็มจอ <b>ห้ามออกจากหน้านี้</b> ห้ามสลับแอป ห้ามเปิดแท็บอื่น ห้ามแคปหน้าจอ</li>
+        <li>ออกจากหน้าครั้งแรก = เตือน · ครั้งที่ ${ch.maxLeaves} = <b>ระบบส่งคำตอบทันที</b> ทุกครั้งที่ออกจะถูกบันทึกให้ครูเห็น</li>
+        <li>ปิดหรือรีโหลดหน้าระหว่างทำ ก็นับเป็นการออกจากหน้า</li>
+        <li>ทำได้ 1 ครั้ง ถ้ามีปัญหาให้แจ้งครูเพื่อรีเซ็ต</li>
+      </ol>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+        <button class="gbtn" id="go">${resume ? "ทำต่อ" : "เริ่มภารกิจ"}</button>
+        <a class="gbtn line" href="${preview ? "teacher.html" : "student.html"}" style="display:inline-flex;align-items:center;text-decoration:none">กลับ</a>
+      </div>
+    </div>`;
+  $("#go").onclick = start;
+}
+
+async function start() {
+  $("#go").disabled = true;
+  if (!preview && status !== "doing") {
+    try {
+      await setDoc(ref, {
+        uid: user.uid, chapterId: ch.id, sectionIds: me.sections, studentId: me.studentId, no: me.no ?? null,
+        name: `${me.firstName} ${me.lastName}`.trim(), nickname: me.nickname || "",
+        status: "doing", answers: {}, xp: 0, score: 0, max: ITEMS.length, violations: 0, violationLog: [],
+        startedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+      status = "doing";
+    } catch (err) { $("#go").disabled = false; return toast(thError(err), "bad"); }
+  }
+  status = "doing";
+  await enterFs();
+  setTimeout(() => { guardOn = true; }, 800);
+  renderMap();
+}
+
+/* ---------------- แผนที่ด่าน ---------------- */
+function renderMap() {
+  const open = firstOpenStage();
+  if (open >= ch.stages.length) return finish("done");
+  const cards = ch.stages.map((s, si) => {
+    const st = stageStat(si), stars = starsOf(si);
+    if (st.complete) return `<div class="stage done"><span class="tag" style="color:var(--g-green)">ด่าน ${si + 1} · ผ่านแล้ว</span>
+      <h3>${esc(s.name)}</h3><p>${esc(s.desc)}</p><span class="stars">${starTxt(stars)}</span><p>${st.got}/${st.max} คะแนน</p></div>`;
+    if (si === open) return `<div class="stage cur"><span class="tag" style="color:var(--g-yellow)">${s.boss ? "ด่านบอส" : "ด่าน " + (si + 1)} · ${st.done ? "กำลังเล่น" : "พร้อมเล่น"}</span>
+      <h3>${esc(s.name)}</h3><p>${esc(s.desc)}</p><p>${s.items.length} ข้อ · ข้อละ ${s.xp} XP</p>
+      <button class="gbtn" id="play" style="margin-top:auto">${st.done ? "เล่นต่อ" : "เล่น"}</button></div>`;
+    return `<div class="stage lock"><span class="tag">${s.boss ? "ด่านบอส" : "ด่าน " + (si + 1)} · ล็อก 🔒</span>
+      <h3>${esc(s.name)}</h3><p>${esc(s.desc)}</p><p>ผ่านด่านก่อนหน้าเพื่อปลดล็อก</p></div>`;
+  }).join("");
+  const badges = ch.stages.map((s, si) => `<span class="badge ${starsOf(si) >= 2 ? "" : "off"}">${esc(s.badge)}</span>`).join("");
+  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle)}
+    <div class="stages">${cards}</div>
+    <div class="box" style="margin-top:16px"><div class="k muted2" style="margin-bottom:8px">เหรียญ (ผ่านด่านด้วย 2 ดาวขึ้นไป)</div><div class="badges">${badges}</div></div>`;
+  $("#play").onclick = () => {
+    curStage = open;
+    curIdx = ch.stages[open].items.findIndex(it => !answers[it.id]);
+    combo = 0;
+    renderQ();
+  };
+}
+
+/* ---------------- คำถาม ---------------- */
+function renderQ() {
+  const s = ch.stages[curStage], it = s.items[curIdx];
+  const prog = s.items.map((x, i) => {
+    const a = answers[x.id];
+    return `<span class="${a ? (a.p >= 1 ? "ok" : a.p > 0 ? "half" : "no") : i === curIdx ? "now" : ""}"></span>`;
+  }).join("");
+  let boss = "";
+  if (s.boss) {
+    const st = stageStat(curStage);
+    const hp = Math.round(100 - (st.got / st.max) * 100);
+    boss = `<div class="box" style="padding:14px 18px"><div style="display:flex;justify-content:space-between" class="muted2"><span>พลังชีวิตบอส</span><span>${hp}/100</span></div>
+      <div class="hp" style="margin-top:6px"><div style="width:${hp}%"></div></div></div>`;
+  }
+  let body;
+  if (it.type === "num") {
+    body = `<div class="numrow"><label for="ans" class="qlabel" style="flex:0 0 auto">คำตอบ</label>
+        <input id="ans" inputmode="decimal" autocomplete="off" placeholder="?"></div>
+      <div class="qlabel" style="margin-top:12px">หน่วย</div>
+      <div class="units">${it.units.map((u, i) => `<button type="button" class="unit" data-u="${i}">${esc(u)}</button>`).join("")}</div>
+      <p style="margin:16px 0 0"><button class="gbtn" id="send" disabled>ส่งคำตอบ</button></p>`;
+  } else {
+    const two = it.choices.length === 2;
+    body = `<div class="choices ${two ? "two" : ""}">${it.choices.map((c, i) =>
+      `<button type="button" class="choice" data-c="${i}">${two ? "" : `<b class="k">${"กขคงจฉช"[i]}.</b> `}${esc(c)}</button>`).join("")}</div>`;
+  }
+  app.innerHTML = `${hud(s.name, (s.boss ? "ด่านบอส" : "ด่าน " + (curStage + 1)) + " · ข้อ " + (curIdx + 1) + " / " + s.items.length + (combo >= 2 ? " · คอมโบ ×" + combo : ""))}
+    <div class="prog" style="margin-bottom:14px">${prog}</div>${boss}
+    <div class="box">
+      ${it.context ? `<div class="ctx">${esc(it.context)}</div>` : ""}
+      <div class="qlabel">${esc(it.label)}${it.type === "tf" ? " · ข้อความนี้ถูกหรือผิด?" : ""}</div>
+      <div class="qtext">${esc(it.text)}</div>
+      ${body}
+      <div id="fb"></div>
+    </div>`;
+
+  if (it.type === "num") {
+    let unit = null;
+    const ready = () => { $("#send").disabled = unit === null || normNum($("#ans").value) === null || !$("#ans").value.trim(); };
+    $("#ans").oninput = ready;
+    app.querySelectorAll(".unit").forEach(b => b.onclick = () => {
+      if (b.disabled) return;
+      app.querySelectorAll(".unit").forEach(x => x.classList.toggle("pick", x === b));
+      unit = Number(b.dataset.u); ready();
+    });
+    $("#send").onclick = async () => {
+      const n = normNum($("#ans").value);
+      $("#send").disabled = true; $("#ans").disabled = true;
+      app.querySelectorAll(".unit").forEach(x => x.disabled = true);
+      const [nk, uk] = await Promise.all([hk(it.id, n), hk(it.id, "u" + unit)]);
+      const numOk = nk === it.key, unitOk = uk === it.ukey;
+      const p = numOk && unitOk ? 1 : numOk ? 0.5 : 0;
+      answered(it, s, p, `${n} ${it.units[unit]}`,
+        p === 1 ? "" : p ? "ตัวเลขถูกแล้ว แต่หน่วยยังไม่ใช่" : "");
+    };
+  } else {
+    app.querySelectorAll(".choice").forEach(b => b.onclick = async () => {
+      app.querySelectorAll(".choice").forEach(x => { x.disabled = true; x.classList.toggle("pick", x === b); });
+      const ok = (await hk(it.id, b.dataset.c)) === it.key;
+      answered(it, s, ok ? 1 : 0, it.choices[Number(b.dataset.c)], "");
+    });
+  }
+}
+
+async function answered(it, s, p, shown, note) {
+  combo = p >= 1 ? combo + 1 : 0;
+  const bonus = p >= 1 && combo >= 3 ? 5 : 0;
+  const gain = Math.round(s.xp * p) + bonus;
+  xp += gain;
+  answers[it.id] = { a: shown, p, at: Date.now() };
+  const cls = p >= 1 ? "ok" : p > 0 ? "half" : "no";
+  const head = p >= 1 ? (bonus ? `ถูกต้อง! คอมโบ ×${combo}` : "ถูกต้อง!") : p > 0 ? "เกือบแล้ว!" : "ยังไม่ใช่!";
+  const msg = [note, gain ? `+${gain} XP` : "", p < 1 ? `ทบทวนหัวข้อ ${it.topic}` : ""].filter(Boolean).join(" · ");
+  const last = curIdx === s.items.length - 1;
+  $("#fb").innerHTML = `<div class="fb ${cls}"><span class="v">${head}</span><span class="msg">${esc(msg)}</span>
+    <button class="gbtn" id="next">${last ? "จบด่าน" : "ข้อต่อไป"}</button></div>`;
+  $("#next").onclick = () => {
+    if (last) renderStageDone();
+    else { curIdx++; renderQ(); }
+  };
+  save();
+}
+
+function renderStageDone() {
+  const s = ch.stages[curStage], st = stageStat(curStage), stars = starsOf(curStage);
+  const isLast = curStage === ch.stages.length - 1;
+  app.innerHTML = `${hud(s.name, "จบด่านแล้ว")}
+    <div class="box center">
+      <div class="k muted2">${s.boss ? "ปราบบอสสำเร็จ" : "ผ่านด่าน " + (curStage + 1)}</div>
+      <div class="big stars" style="letter-spacing:10px">${starTxt(stars)}</div>
+      <p style="font-size:1.2rem">${st.got}/${st.max} คะแนน</p>
+      ${stars >= 2 ? `<p>ได้เหรียญ <span class="badge">${esc(s.badge)}</span></p>` : ""}
+      <button class="gbtn" id="cont">${isLast ? "ส่งคำตอบและดูผล" : "กลับแผนที่"}</button>
+    </div>`;
+  $("#cont").onclick = () => isLast ? finish("done") : renderMap();
+}
+
+/* ---------------- ส่งคำตอบ ---------------- */
+async function finish(how) {
+  guardOn = false; warnOpen = false; wantFs = false;
+  document.body.classList.remove("covered");
+  status = how;
+  if (!preview && ref) {
+    const t = totals();
+    try { await updateDoc(ref, { status: how, answers, xp, score: t.score, max: t.max, submittedAt: serverTimestamp(), updatedAt: serverTimestamp() }); }
+    catch (err) { toast("ส่งคำตอบไม่สำเร็จ: " + thError(err), "bad"); }
+  }
+  exitFs();
+  renderResult();
+}
+
+function renderResult() {
+  const t = totals();
+  const review = [...new Set(ITEMS.filter(it => (answers[it.id]?.p ?? 0) < 1).map(it => it.topic))];
+  const unanswered = ITEMS.filter(it => !answers[it.id]).length;
+  const badges = ch.stages.map((s, si) => `<span class="badge ${starsOf(si) >= 2 ? "" : "off"}">${esc(s.badge)}</span>`).join("");
+  app.innerHTML = `${hud("สรุปผลภารกิจ", ch.title)}
+    ${status === "locked" ? `<div class="fb no" style="margin:0 0 16px"><span class="v">ส่งคำตอบอัตโนมัติ</span>
+      <span class="msg">ออกจากหน้าข้อสอบครบ ${ch.maxLeaves} ครั้ง ระบบจึงส่งคำตอบเท่าที่ทำไว้ (${unanswered} ข้อไม่ได้ตอบ)</span></div>` : ""}
+    <div class="box">
+      <div class="center"><div class="k" style="color:var(--g-green)">${status === "locked" ? "จบภารกิจ" : "ภารกิจสำเร็จ"}</div>
+        <div class="big">${t.score} / ${t.max}</div></div>
+      <div class="stat2">
+        <div><b>${xp}</b>XP รวม</div>
+        ${ch.stages.map((s, si) => `<div><b class="stars">${starTxt(starsOf(si))}</b>${esc(s.name)}</div>`).join("")}
+        <div><b style="color:${leaves ? "var(--g-red)" : "var(--g-green)"}">${leaves}</b>ออกจากหน้า (ครั้ง)</div>
+      </div>
+      <div class="k muted2" style="margin:8px 0">เหรียญ</div><div class="badges">${badges}</div>
+    </div>
+    <div class="box"><div class="k" style="font-size:1.2rem;margin-bottom:6px">หัวข้อที่ควรทบทวน</div>
+      ${review.length ? review.map(r => `<div class="rev"><span>${esc(r)}</span></div>`).join("") : `<p class="muted2">ทำได้ครบทุกหัวข้อ เยี่ยมมาก!</p>`}
+    </div>
+    <p><a class="gbtn" href="${preview ? "teacher.html" : "student.html"}" style="display:inline-flex;align-items:center;text-decoration:none">${preview ? "กลับหน้าครู" : "กลับหน้านักเรียน"}</a></p>`;
+}
+
+/* ---------------- กันทุจริต ---------------- */
+async function enterFs() {
+  const el = document.documentElement;
+  const fn = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!fn) return; // iPhone ไม่รองรับเต็มจอ ใช้การตรวจสลับแอปแทน
+  try { await fn.call(el, { navigationUI: "hide" }); wantFs = true; } catch (e) { wantFs = false; }
+}
+function exitFs() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement;
+  if (!fsEl) return;
+  try { (document.exitFullscreen || document.webkitExitFullscreen).call(document); } catch (e) {}
+}
+
+async function addLeave(type) {
+  leaves++;
+  if (preview || !ref) return;
+  try { await updateDoc(ref, { violations: leaves, violationLog: arrayUnion({ type, at: Date.now() }), updatedAt: serverTimestamp() }); }
+  catch (e) {}
+}
+
+async function violate(type) {
+  if (!guardOn || warnOpen) return;
+  const now = Date.now();
+  if (now - lastLeave < 2000) return;
+  lastLeave = now;
+  warnOpen = true;
+  document.body.classList.add("covered");
+  $("#shieldBox").innerHTML = `<p class="muted2">กำลังบันทึก…</p>`;
+  await addLeave(type);
+  if (leaves >= ch.maxLeaves) return finish("locked");
+  $("#shieldBox").innerHTML = `<h2>ตรวจพบการออกจากหน้าข้อสอบ</h2>
+    <p style="font-size:1.1rem;line-height:1.6">${esc(type)}<br>ครั้งที่ <b>${leaves}</b> จาก ${ch.maxLeaves} — ระบบบันทึกให้ครูแล้ว</p>
+    <p class="muted2">ถ้าออกอีก ${ch.maxLeaves - leaves} ครั้ง ระบบจะส่งคำตอบทันที</p>
+    <button class="gbtn" id="back">กลับไปทำต่อ</button>`;
+  $("#back").onclick = async () => {
+    await enterFs();
+    document.body.classList.remove("covered");
+    lastLeave = Date.now();
+    setTimeout(() => { warnOpen = false; }, 800);
+  };
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && guardOn) { document.body.classList.add("covered"); violate("ออกจากหน้า / สลับแอป / เปิดแท็บอื่น"); }
+});
+window.addEventListener("blur", () => violate("คลิกออกไปนอกหน้าข้อสอบ"));
+const onFsChange = () => {
+  if (wantFs && !(document.fullscreenElement || document.webkitFullscreenElement)) violate("ออกจากโหมดเต็มจอ");
+};
+document.addEventListener("fullscreenchange", onFsChange);
+document.addEventListener("webkitfullscreenchange", onFsChange);
+
+document.addEventListener("keydown", e => {
+  if (!guardOn) return;
+  const k = (e.key || "").toLowerCase();
+  if (e.metaKey && e.shiftKey) { document.body.classList.add("covered"); violate("กดคีย์ลัดแคปหน้าจอ"); return; }
+  if (k === "f12" || (e.ctrlKey && e.shiftKey && ["i", "j", "c"].includes(k)) || (e.metaKey && e.altKey)) {
+    e.preventDefault(); violate("พยายามเปิดเครื่องมือนักพัฒนา"); return;
+  }
+  if ((e.ctrlKey || e.metaKey) && ["p", "s", "c", "u", "a"].includes(k)) e.preventDefault();
+}, true);
+document.addEventListener("keyup", e => {
+  if (guardOn && e.key === "PrintScreen") { document.body.classList.add("covered"); violate("กดปุ่มแคปหน้าจอ (Print Screen)"); }
+}, true);
+["contextmenu", "copy", "cut", "dragstart", "selectstart"].forEach(ev => document.addEventListener(ev, e => {
+  if (guardOn && !(ev === "selectstart" && e.target.tagName === "INPUT")) e.preventDefault();
+}));
+window.addEventListener("beforeunload", e => { if (guardOn) { e.preventDefault(); e.returnValue = ""; } });
+</script>
+</body>
+</html>
