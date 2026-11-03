@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>นักสืบโภชนาการ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;500;600&family=Sarabun:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: full-screen landscape side-scroller; HUD bar on top, touch controls floating bottom-left / bottom-right */
+:root{
+  --ink:#1c2340; --ink-2:#2c3560; --paper:#fffaf0; --paper-2:#f1ead9;
+  --accent:#f2b134; --accent-ink:#3a2700; --good:#3f9a5c; --bad:#c9483b; --muted:#6b6f86;
+  --display:"Mitr","Sarabun",system-ui,sans-serif; --body:"Sarabun",system-ui,sans-serif;
+  color-scheme:light;
+}
+[hidden]{display:none!important}
+*{box-sizing:border-box}
+html,body{height:100%;}
+body{margin:0;background:#1c2340;color:var(--ink);font-family:var(--body);overflow:hidden;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}
+button{font-family:var(--display);cursor:pointer;touch-action:manipulation;}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+#app{position:relative;width:100%;height:100%;overflow:hidden;background:#1c2340;}
+
+/* ---------- world ---------- */
+#stage{position:absolute;inset:0;overflow:hidden;touch-action:none;}
+#world{position:absolute;left:0;top:0;width:3200px;height:360px;transform-origin:0 0;will-change:transform;}
+.room{position:absolute;top:0;width:640px;height:360px;overflow:hidden;}
+.room .wall{position:absolute;left:0;right:0;top:0;height:285px;}
+.room .floor{position:absolute;left:0;right:0;top:285px;bottom:0;}
+.room .base{position:absolute;left:0;right:0;top:279px;height:8px;background:rgba(60,40,20,.35);}
+.r0 .wall{background:repeating-linear-gradient(90deg,#d5e2cc 0 26px,#c9d9bf 26px 30px);}
+.r0 .floor{background:repeating-linear-gradient(90deg,#a8794f 0 78px,#9a6c45 78px 80px);}
+.r1 .wall{background-color:#ddd2e9;background-image:radial-gradient(#cdbfe0 3px,transparent 3.5px);background-size:28px 28px;}
+.r1 .floor{background:#b98f6b;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.06) 0 6px,transparent 6px 12px);}
+.r2 .wall{background-color:#e2cd9d;background-image:linear-gradient(rgba(120,80,30,.18) 2px,transparent 2px),linear-gradient(90deg,rgba(120,80,30,.18) 2px,transparent 2px);background-size:60px 30px;}
+.r2 .floor{background:#9b968c;}
+.r3 .wall{background:linear-gradient(#8fcbec,#d9f1fb 85%);}
+.r3 .floor{background:#79b55a;background-image:repeating-linear-gradient(90deg,rgba(40,90,30,.25) 0 3px,transparent 3px 14px);}
+.r4 .wall{background-color:#eaf4f1;background-image:linear-gradient(#cfe1dc 2px,transparent 2px),linear-gradient(90deg,#cfe1dc 2px,transparent 2px);background-size:34px 34px;}
+.r4 .floor{background-color:#e8e2d6;background-image:conic-gradient(#c9c1b0 25%,transparent 0 50%,#c9c1b0 0 75%,transparent 0);background-size:40px 40px;}
+.roomname{position:absolute;top:14px;left:50%;transform:translateX(-50%);font-family:var(--display);font-size:15px;color:rgba(28,35,64,.38);letter-spacing:.05em;white-space:nowrap;}
+.deco{position:absolute;}
+.window{background:linear-gradient(#a9dcf5,#e5f6fd);border:7px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.12);}
+.window::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent calc(50% - 2px),#fff calc(50% - 2px) calc(50% + 2px),transparent 0),linear-gradient(transparent calc(50% - 2px),#fff calc(50% - 2px) calc(50% + 2px),transparent 0);}
+.frame{border:6px solid #8a5d3b;background:#f3d7a1;}
+.door{position:absolute;top:75px;width:52px;height:212px;background:#3b2a1d;border:6px solid #6d4b30;border-bottom:none;border-radius:4px 4px 0 0;z-index:1;}
+.fence{position:absolute;left:0;right:0;top:200px;height:85px;background:repeating-linear-gradient(90deg,#f5f0e6 0 14px,transparent 14px 34px);}
+.fence::before{content:"";position:absolute;left:0;right:0;top:22px;height:10px;background:#f5f0e6;}
+
+.hs{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;z-index:2;}
+.hs .body{position:relative;border-radius:6px 6px 2px 2px;box-shadow:0 6px 0 rgba(0,0,0,.18);display:flex;align-items:flex-start;justify-content:center;}
+.hs .emo{line-height:1;display:block;filter:drop-shadow(0 4px 0 rgba(0,0,0,.15));}
+.hs .tag{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--ink);color:#fff;font-family:var(--display);font-size:15px;padding:4px 12px;border-radius:999px;white-space:nowrap;opacity:0;transition:.18s;pointer-events:none;}
+.hs .tag::after{content:"";position:absolute;top:100%;left:50%;margin-left:-6px;border:6px solid transparent;border-top-color:var(--ink);}
+.hs.near .tag{opacity:1;transform:translateX(-50%) translateY(0);}
+.hs.near .body,.hs.near>.emo{outline:3px dashed var(--accent);outline-offset:5px;border-radius:8px;}
+.hs .done{position:absolute;top:-10px;right:-10px;width:26px;height:26px;border-radius:50%;background:var(--good);color:#fff;font:600 16px/26px var(--body);text-align:center;display:none;box-shadow:0 2px 0 rgba(0,0,0,.2);}
+.hs.searched .done{display:block;}
+.hs.lab .body{box-shadow:0 0 0 4px var(--accent),0 6px 0 rgba(0,0,0,.2);}
+
+/* player */
+#player{position:absolute;bottom:40px;width:50px;height:104px;z-index:5;margin-left:-25px;}
+#player .p{position:absolute;inset:0;transform-origin:50% 100%;}
+#player.flip .p{transform:scaleX(-1);}
+#player .shadow{position:absolute;bottom:-6px;left:2px;width:46px;height:12px;border-radius:50%;background:rgba(0,0,0,.25);}
+#player .hat{position:absolute;top:0;left:7px;width:36px;height:16px;background:#6b4a2b;border-radius:16px 16px 3px 3px;z-index:2;}
+#player .hat::after{content:"";position:absolute;bottom:-4px;left:-5px;width:46px;height:6px;border-radius:3px;background:#55381f;}
+#player .head{position:absolute;top:10px;left:10px;width:30px;height:30px;border-radius:50%;background:#f1c39c;}
+#player .head::after{content:"";position:absolute;top:13px;right:6px;width:4px;height:5px;border-radius:2px;background:#2b2018;}
+#player .coat{position:absolute;top:38px;left:8px;width:34px;height:44px;background:#c8873e;border-radius:10px 10px 4px 4px;}
+#player .coat::after{content:"";position:absolute;left:15px;top:4px;width:4px;height:36px;background:rgba(0,0,0,.15);}
+#player .leg{position:absolute;top:80px;width:10px;height:22px;background:#2e3557;border-radius:0 0 4px 4px;transform-origin:50% 0;}
+#player .l1{left:14px}#player .l2{left:27px}
+#player .glass{position:absolute;top:42px;right:-14px;width:18px;height:18px;border:4px solid #3d3d3d;border-radius:50%;background:rgba(200,235,255,.6);}
+#player .glass::after{content:"";position:absolute;top:13px;left:-10px;width:12px;height:4px;background:#3d3d3d;transform:rotate(-40deg);}
+#player.walk .l1{animation:step .36s infinite alternate ease-in-out;}
+#player.walk .l2{animation:step .36s infinite alternate-reverse ease-in-out;}
+#player.walk .p{animation:bob .36s infinite alternate ease-in-out;}
+@keyframes step{from{transform:rotate(22deg)}to{transform:rotate(-22deg)}}
+@keyframes bob{from{translate:0 0}to{translate:0 -3px}}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:8px;
+  padding:8px max(12px,env(safe-area-inset-right,0px)) 8px max(12px,env(safe-area-inset-left,0px));
+  padding-top:calc(8px + env(safe-area-inset-top,0px));pointer-events:none;}
+#hud>*{pointer-events:auto;}
+.pill{background:rgba(28,35,64,.88);color:#fff;border-radius:999px;padding:6px 14px;font-family:var(--display);font-size:15px;display:flex;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 3px 0 rgba(0,0,0,.25);}
+#timer{font-variant-numeric:tabular-nums;font-size:18px;min-width:96px;justify-content:center;}
+#timer.warn{background:var(--bad);}
+.spacer{flex:1;}
+.hudbtn{border:0;background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 14px;font-size:15px;box-shadow:0 3px 0 rgba(0,0,0,.3);display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.hudbtn b{background:var(--ink);color:#fff;border-radius:999px;padding:0 8px;font-family:var(--body);font-size:13px;font-variant-numeric:tabular-nums;}
+
+#controls-l,#controls-r{position:absolute;z-index:20;display:flex;gap:14px;bottom:calc(14px + env(safe-area-inset-bottom,0px));}
+#controls-l{left:max(16px,env(safe-area-inset-left,0px));}
+#controls-r{right:max(16px,env(safe-area-inset-right,0px));}
+.cbtn{width:clamp(62px,9vw,84px);height:clamp(62px,9vw,84px);border-radius:50%;border:0;font-size:clamp(15px,2vw,18px);color:#fff;background:rgba(28,35,64,.82);box-shadow:0 5px 0 rgba(0,0,0,.35);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;touch-action:none;}
+.cbtn .ic{font-size:clamp(22px,3vw,28px);line-height:1;}
+.cbtn:active,.cbtn.held{transform:translateY(3px);box-shadow:0 2px 0 rgba(0,0,0,.35);}
+.cbtn.act{background:var(--accent);color:var(--accent-ink);}
+.cbtn:disabled{opacity:.45;}
+.cbtn.dir{background:rgba(255,250,240,.9);color:var(--ink);font-size:30px;}
+
+#toast{position:absolute;top:calc(60px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:30;background:var(--paper);color:var(--ink);border-radius:14px;padding:10px 18px;font-size:16px;font-weight:500;box-shadow:0 6px 18px rgba(0,0,0,.3);max-width:min(560px,80vw);text-align:center;opacity:0;transition:opacity .2s;pointer-events:none;}
+#toast.show{opacity:1;}
+
+/* ---------- overlays ---------- */
+.ov{position:absolute;inset:0;z-index:40;background:rgba(15,19,38,.72);display:flex;align-items:center;justify-content:center;
+  padding:max(10px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(10px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));}
+.panel{background:var(--paper);border-radius:18px;width:min(920px,100%);max-height:100%;display:flex;flex-direction:column;box-shadow:0 14px 40px rgba(0,0,0,.4);overflow:hidden;}
+.panel-h{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--ink);color:#fff;}
+.panel-h h2{margin:0;font-family:var(--display);font-weight:500;font-size:19px;flex:1;}
+.xbtn{border:0;background:rgba(255,255,255,.15);color:#fff;border-radius:999px;padding:6px 14px;font-size:15px;}
+.panel-b{padding:12px 14px;overflow:auto;-webkit-overflow-scrolling:touch;}
+.btn{border:0;border-radius:12px;padding:10px 18px;font-size:16px;background:var(--ink);color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.25);}
+.btn.primary{background:var(--accent);color:var(--accent-ink);}
+.btn.ghost{background:var(--paper-2);color:var(--ink);}
+.btn:disabled{opacity:.4;}
+
+/* intro / letter */
+.letter{background:#fffdf6;background-image:repeating-linear-gradient(transparent 0 29px,#e6dfcc 29px 30px);padding:18px 24px;border-radius:6px;font-size:16.5px;line-height:30px;max-width:62ch;margin:0 auto;position:relative;}
+.letter h1{font-family:var(--display);font-weight:600;font-size:clamp(24px,4vw,34px);margin:0 0 4px;line-height:1.2;color:var(--ink);text-wrap:balance;}
+.letter p{margin:0;}
+.letter .sig{text-align:right;font-family:var(--display);}
+.introwrap{display:flex;flex-direction:column;gap:12px;align-items:center;}
+
+/* bag */
+.tabs{display:flex;gap:6px;margin-bottom:10px;}
+.tab{border:0;background:var(--paper-2);border-radius:999px;padding:6px 14px;font-size:15px;color:var(--ink);}
+.tab[aria-selected="true"]{background:var(--ink);color:#fff;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;}
+.card{background:#fff;border:2px solid var(--paper-2);border-radius:12px;padding:8px 10px;display:flex;gap:10px;align-items:center;min-width:0;}
+.card.missing{background:transparent;border-style:dashed;color:var(--muted);}
+.card .nm{font-weight:600;font-size:15px;line-height:1.25;}
+.card .lb{font-size:13px;color:var(--muted);line-height:1.3;}
+.ico{flex:none;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:26px;line-height:1;}
+.chip{font-family:var(--display);font-size:13px;color:#fff;border-radius:10px;}
+.label-tag{display:inline-block;margin-top:3px;background:#fff4d6;border:1px solid #f0d68f;color:#6a4b00;border-radius:6px;padding:1px 6px;font-size:12.5px;}
+
+/* lab */
+.lab{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:14px;}
+.bench{background:#e4efec;border-radius:14px;padding:10px;display:flex;gap:12px;align-items:flex-end;min-width:0;}
+.tubebox{flex:none;width:64px;height:170px;position:relative;display:flex;align-items:flex-end;justify-content:center;}
+.tube{position:relative;width:38px;height:160px;border:3px solid #8aa0a6;border-top:none;border-radius:0 0 19px 19px;background:rgba(255,255,255,.55);overflow:hidden;}
+.tube::before{content:"";position:absolute;top:0;left:-6px;right:-6px;height:6px;background:#8aa0a6;border-radius:3px;}
+.liquid{position:absolute;left:0;right:0;bottom:0;height:0;transition:height .4s,background-color .6s;}
+.ppt{position:absolute;left:0;right:0;bottom:0;height:0;background:#b4472a;transition:height .8s .3s;border-radius:0 0 16px 16px;}
+.bubbles{position:absolute;inset:0;pointer-events:none;}
+.bubbles i{position:absolute;bottom:4px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85);animation:rise 1s ease-in forwards;}
+@keyframes rise{to{transform:translateY(-110px);opacity:0}}
+.paperview{width:120px;height:150px;background:#fbfbf7;border:1px solid #ddd;box-shadow:0 3px 8px rgba(0,0,0,.15);position:relative;transform:rotate(-3deg);}
+.paperview .spot{position:absolute;left:30px;top:40px;width:60px;height:50px;border-radius:50% 45% 55% 50%;transition:.8s;}
+.obs{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
+.obs .t{font-family:var(--display);font-size:13px;color:var(--muted);}
+.obs .r{font-size:17px;font-weight:600;line-height:1.35;}
+.steps{font-size:13.5px;color:var(--ink-2);line-height:1.45;}
+.steps ol{margin:0;padding-left:20px;}
+.sec-t{font-family:var(--display);font-size:14px;color:var(--muted);margin:2px 0 6px;}
+.samples{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.sbtn{border:2px solid var(--paper-2);background:#fff;border-radius:999px;padding:4px 12px 4px 6px;font-family:var(--body);font-size:14.5px;display:flex;align-items:center;gap:6px;color:var(--ink);}
+.sbtn .ico{width:26px;height:26px;font-size:18px;border-radius:8px;}
+.sbtn .chip{font-size:11px;}
+.sbtn[aria-pressed="true"]{border-color:var(--ink);background:var(--ink);color:#fff;}
+.actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;}
+.abtn{border:0;background:#fff;border:2px solid #d9d2bf;border-radius:10px;padding:8px 10px;text-align:left;font-family:var(--body);font-size:14.5px;font-weight:500;color:var(--ink);line-height:1.25;}
+.abtn:disabled{opacity:.4;}
+.labfoot{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap;}
+
+/* notebook */
+.nb-row{display:grid;grid-template-columns:minmax(120px,170px) minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px dashed #d8cfb8;align-items:start;}
+.nb-row:last-child{border-bottom:0;}
+.nb-name{display:flex;gap:8px;align-items:center;font-weight:600;font-size:15px;}
+.nuts{display:flex;flex-wrap:wrap;gap:6px;}
+.nut{border:2px solid #d9d2bf;background:#fff;border-radius:999px;padding:4px 12px;font-family:var(--body);font-size:14px;color:var(--ink);}
+.nut[aria-pressed="true"]{background:var(--good);border-color:var(--good);color:#fff;}
+.nb-log{margin-top:6px;font-size:13px;color:var(--muted);line-height:1.45;}
+.nb-log div::before{content:"• ";}
+.nb-foot{display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;padding:10px 14px;border-top:1px solid var(--paper-2);}
+.nb-foot .msg{flex:1;min-width:0;font-size:14px;color:var(--bad);}
+
+/* end */
+.score{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.stat{background:#fff;border-radius:12px;padding:8px 14px;border:2px solid var(--paper-2);}
+.stat .v{font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums;line-height:1.1;}
+.stat .k{font-size:13px;color:var(--muted);}
+.tablewrap{overflow-x:auto;}
+table{border-collapse:collapse;width:100%;font-size:14px;min-width:620px;}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid #e3dccb;vertical-align:top;}
+th{font-family:var(--display);font-weight:500;color:var(--muted);font-size:13px;}
+td.ok{color:var(--good);font-weight:600;} td.no{color:var(--bad);font-weight:600;}
+
+/* rotate overlay */
+#rotate{position:fixed;inset:0;z-index:100;background:var(--ink);color:#fff;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;}
+#rotate .ph{width:70px;height:110px;border:5px solid #fff;border-radius:14px;animation:rot 2s infinite ease-in-out;}
+#rotate p{font-family:var(--display);font-size:20px;margin:0;max-width:22ch;}
+#rotate small{opacity:.7;font-size:14px;max-width:30ch;}
+@keyframes rot{0%,30%{transform:rotate(0)}60%,100%{transform:rotate(-90deg)}}
+@media (orientation:portrait) and (max-width:1100px){#rotate{display:flex;}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;}}
+@media (max-height:420px){.panel-b{padding:8px 12px;}.tubebox{height:130px}.tube{height:120px}.letter{line-height:26px;font-size:15px;background-image:repeating-linear-gradient(transparent 0 25px,#e6dfcc 25px 26px);}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="stage"><div id="world"></div></div>
+
+  <div id="hud">
+    <a class="hudbtn" id="backBtn" href="../student.html" style="text-decoration:none">◀ กลับ</a>
+    <div class="pill" id="roomPill">ห้องนั่งเล่น</div>
+    <div class="spacer"></div>
+    <div class="pill" id="timer">15:00</div>
+    <div class="spacer"></div>
+    <button class="hudbtn" id="bagBtn">กระเป๋า <b id="cntFood">0/10</b><b id="cntEq">0/11</b></button>
+    <button class="hudbtn" id="nbBtn">สมุดนักสืบ</button>
+  </div>
+
+  <div id="controls-l">
+    <button class="cbtn act" id="pickBtn"><span class="ic">✋</span>หยิบ</button>
+    <button class="cbtn" id="testBtn"><span class="ic">🧪</span>ทดสอบ</button>
+  </div>
+  <div id="controls-r">
+    <button class="cbtn dir" id="leftBtn" aria-label="เดินถอยหลัง">◀</button>
+    <button class="cbtn dir" id="rightBtn" aria-label="เดินไปข้างหน้า">▶</button>
+  </div>
+
+  <div id="toast" role="status"></div>
+
+  <!-- intro -->
+  <div class="ov" id="intro">
+    <div class="panel" style="width:min(760px,100%)">
+      <div class="panel-b">
+        <div class="introwrap">
+          <div class="letter">
+            <h1>นักสืบโภชนาการ</h1>
+            <p>ถึง หลานนักสืบที่รัก</p>
+            <p>วันอาทิตย์นี้บ้านเราจะมีงานเลี้ยงครอบครัว ยายอยากรู้ว่าอาหารแต่ละอย่างในบ้านมี<b>สารอาหาร</b>อะไรบ้าง ยายเลยซ่อน<b>อาหาร 10 อย่าง</b>ไว้ทั่วบ้าน และเก็บ<b>อุปกรณ์ทดลอง 11 ชิ้น</b>ไว้หลายที่</p>
+            <p>หาให้ครบ แล้วไปทดสอบที่<b>โต๊ะทดลองในห้องครัว</b> จดผลลงสมุดนักสืบ แล้วส่งให้ยายภายใน <b>15 นาที</b> นะจ๊ะ</p>
+            <p class="sig">รักหลานเสมอ, ยาย</p>
+          </div>
+          <div style="font-size:14px;color:var(--muted);text-align:center;max-width:60ch">ปุ่ม ◀ ▶ ล่างขวาเพื่อเดิน · ปุ่ม <b>หยิบ</b> เมื่อยืนใกล้เฟอร์นิเจอร์ · ปุ่ม <b>ทดสอบ</b> ที่โต๊ะทดลอง</div>
+          <button class="btn primary" id="startBtn" style="font-size:18px;padding:12px 28px">เริ่มภารกิจ</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- bag -->
+  <div class="ov" id="bagOv" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2>กระเป๋า</h2><button class="xbtn" data-close="bagOv">ปิด</button></div>
+      <div class="panel-b">
+        <div class="tabs" role="tablist">
+          <button class="tab" role="tab" aria-selected="true" data-tab="food">อาหาร</button>
+          <button class="tab" role="tab" aria-selected="false" data-tab="eq">อุปกรณ์ทดลอง</button>
+        </div>
+        <div class="grid" id="bagGrid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- lab -->
+  <div class="ov" id="labOv" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2>โต๊ะทดลอง</h2><button class="xbtn" id="labClose">ปิด</button></div>
+      <div class="panel-b">
+        <div id="safety" hidden>
+          <div class="sec-t">ก่อนเริ่มทดลอง · ตรวจความปลอดภัย</div>
+          <div class="nuts" style="flex-direction:column;align-items:flex-start;gap:8px">
+            <button class="nut" data-safe="0" aria-pressed="false">สวมแว่นตานิรภัยและถุงมือ เพราะมีกรดและเบสบนโต๊ะ</button>
+            <button class="nut" data-safe="1" aria-pressed="false">เมื่อให้ความร้อน หันปากหลอดทดลองออกจากตัวและเพื่อน</button>
+            <button class="nut" data-safe="2" aria-pressed="false">ไม่ชิมหรือดมสารเคมีโดยตรง</button>
+          </div>
+          <div class="labfoot"><button class="btn primary" id="safeGo" disabled>พร้อมทดลอง</button></div>
+        </div>
+        <div class="lab" id="labMain">
+          <div style="min-width:0;display:flex;flex-direction:column;gap:8px">
+            <div class="bench">
+              <div class="tubebox" id="vessel"></div>
+              <div class="obs">
+                <div class="t">ผลที่สังเกตได้</div>
+                <div class="r" id="obsText">เลือกตัวอย่างใส่หลอดทดลอง</div>
+              </div>
+            </div>
+            <div class="steps" id="stepList"></div>
+          </div>
+          <div style="min-width:0">
+            <div class="sec-t">1 · เลือกตัวอย่าง</div>
+            <div class="samples" id="sampleList"></div>
+            <div class="sec-t">2 · ทำการทดลอง</div>
+            <div class="actions" id="actionList"></div>
+            <div class="labfoot"><button class="btn ghost" id="resetTube">ล้างหลอด เริ่มใหม่</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- notebook -->
+  <div class="ov" id="nbOv" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2>สมุดนักสืบ</h2><button class="xbtn" data-close="nbOv">ปิด</button></div>
+      <div class="panel-b" id="nbBody"></div>
+      <div class="nb-foot">
+        <div class="msg" id="nbMsg"></div>
+        <button class="btn ghost" id="nbCancel" hidden>ยังก่อน</button>
+        <button class="btn primary" id="nbSubmit">ส่งสมุดให้ยาย</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- end -->
+  <div class="ov" id="endOv" hidden>
+    <div class="panel">
+      <div class="panel-h"><h2 id="endTitle">ยายตรวจสมุดแล้ว</h2></div>
+      <div class="panel-b" id="endBody"></div>
+      <div class="nb-foot"><button class="btn primary" id="againBtn">เล่นอีกครั้ง</button></div>
+    </div>
+  </div>
+
+  <div id="rotate"><div class="ph"></div><p>หมุนเครื่องเป็นแนวนอนเพื่อเล่น</p><small>ถ้าหมุนแล้วจอไม่เปลี่ยน ให้ปิดล็อกการหมุนจอในศูนย์ควบคุมก่อน</small></div>
+</div>
+
+<script>
+(()=>{
+const NUTS={starch:'แป้ง',sugar:'น้ำตาล',protein:'โปรตีน',fat:'ไขมัน',vitc:'วิตามินซี'};
+const FOODS={
+  rice:{name:'ข้าวสวย',e:'🍚',base:'rgba(245,240,226,.95)',truth:['starch'],p:{starch:1},moist:1},
+  potato:{name:'มันฝรั่ง',e:'🥔',base:'rgba(232,217,168,.9)',truth:['starch'],p:{starch:1},moist:1},
+  grape:{name:'องุ่น',e:'🍇',base:'rgba(205,190,220,.85)',truth:['sugar'],p:{reducing:1},moist:1},
+  sugar:{name:'น้ำตาลทราย',chip:'น้ำตาล',cc:'#b9a98a',base:'rgba(250,250,245,.8)',truth:['sugar'],p:{sucrose:1},moist:0},
+  egg:{name:'ไข่ขาว',e:'🥚',base:'rgba(244,241,226,.9)',truth:['protein'],p:{protein:1,coag:1},moist:1},
+  milk:{name:'นม',e:'🥛',base:'rgba(252,251,246,.98)',truth:['protein','fat','sugar'],p:{protein:1,fat:1,reducing:1,sugarLow:1,fatLow:1},moist:1},
+  butter:{name:'เนย',e:'🧈',base:'rgba(246,224,138,.9)',truth:['fat'],p:{fat:1},moist:0},
+  oil:{name:'น้ำมันพืช',chip:'น้ำมัน',cc:'#c9a227',base:'rgba(242,217,107,.85)',truth:['fat'],p:{fat:1,layer:1},moist:0},
+  orange:{name:'ส้ม',e:'🍊',base:'rgba(247,165,65,.85)',truth:['sugar','vitc'],p:{vitc:1,reducing:1},moist:1},
+  guava:{name:'ฝรั่ง',chip:'ฝรั่ง',cc:'#6aa84f',base:'rgba(217,232,181,.9)',truth:['sugar','vitc'],p:{vitc:1,reducing:1},moist:1},
+};
+const FOOD_ORDER=['rice','potato','grape','sugar','egg','milk','butter','oil','orange','guava'];
+const EQ={
+  tube:{name:'หลอดทดลอง',e:'🧪',label:'ภาชนะใส่สารสำหรับทดสอบ'},
+  dropper:{name:'หลอดหยด',chip:'หยด',cc:'#7d8794',label:'ใช้ดูดและหยดสาร'},
+  iodine:{name:'สารละลายไอโอดีน',chip:'I₂',cc:'#9a4a1c',label:'ใช้ทดสอบแป้ง'},
+  benedict:{name:'สารละลายเบเนดิกต์',chip:'Ben',cc:'#2d7fc1',label:'ใช้ทดสอบน้ำตาลรีดิวซ์'},
+  biuret:{name:'สารละลายไบยูเรต',chip:'Biu',cc:'#4fa3c7',label:'ใช้ทดสอบโปรตีน'},
+  starchI:{name:'น้ำแป้งผสมไอโอดีน',chip:'แป้ง+I₂',cc:'#2b2f7a',label:'ใช้ทดสอบวิตามินซี'},
+  paper:{name:'กระดาษ',e:'📄',label:'ใช้ทดสอบไขมัน'},
+  bath:{name:'ชุดอ่างน้ำร้อน',e:'♨️',label:'ใช้ให้ความร้อนกับหลอดทดลอง'},
+  water:{name:'น้ำเปล่า',e:'💧',label:'ใช้เป็นหลอดควบคุม'},
+  hcl:{name:'กรดไฮโดรคลอริกเจือจาง',chip:'HCl',cc:'#b33a3a',label:'ใช้ย่อยน้ำตาลบางชนิดก่อนทดสอบ'},
+  nahco3:{name:'โซเดียมไฮโดรเจนคาร์บอเนต',chip:'NaHCO₃',cc:'#5b8f6b',label:'ใช้ปรับสารละลายที่เป็นกรดให้เป็นกลาง'},
+};
+const EQ_ORDER=['tube','dropper','iodine','benedict','biuret','starchI','paper','bath','water','hcl','nahco3'];
+const ROOMS=['ห้องนั่งเล่น','ห้องนอน','ห้องเก็บของ','ระเบียงสวน','ห้องครัว'];
+
+const HS=[
+ {id:'shelf',name:'ชั้นหนังสือ',x:100,w:92,h:172,css:'background:repeating-linear-gradient(180deg,#6e4529 0 8px,transparent 8px 42px),linear-gradient(90deg,#c0583e 0 18%,#3f6e8c 18% 36%,#e0b44a 36% 52%,#5d8a4f 52% 72%,#a14b6a 72% 88%,#6e4529 88%);',items:[],empty:'มีแต่หนังสือการ์ตูนเก่าของตา'},
+ {id:'sofa',name:'โซฟา',x:262,e:'🛋️',es:118,items:[],empty:'ใต้เบาะมีแค่เหรียญบาท 1 เหรียญ'},
+ {id:'ctable',name:'โต๊ะกลาง',x:410,w:118,h:44,css:'background:#8a5d3b;border-radius:8px 8px 2px 2px;',top:'🧺',ts:40,items:['orange']},
+ {id:'tv',name:'ตู้ทีวี',x:548,w:124,h:62,css:'background:#5a4636;',top:'📺',ts:66,items:['rice']},
+ {id:'wardrobe',name:'ตู้เสื้อผ้า',x:730,w:104,h:192,css:'background:linear-gradient(90deg,#9c6f4f 49%,#6b4a33 49% 51%,#9c6f4f 51%);',items:['grape']},
+ {id:'bed',name:'เตียงนอน',x:905,e:'🛏️',es:130,items:[],empty:'มีแต่ตุ๊กตาหมีนอนอยู่'},
+ {id:'vanity',name:'โต๊ะเครื่องแป้ง',x:1065,w:92,h:82,css:'background:#b7869a;',top:'🪞',ts:52,items:['oil']},
+ {id:'night',name:'โต๊ะข้างเตียง',x:1200,w:62,h:62,css:'background:#8d6a52;',top:'⏰',ts:34,items:['starchI']},
+ {id:'box',name:'กล่องกระดาษ',x:1365,e:'📦',es:92,items:['potato']},
+ {id:'mshelf',name:'ชั้นวางของ',x:1525,w:112,h:162,css:'background:repeating-linear-gradient(180deg,#5d6672 0 7px,#9aa4ae 7px 52px);',items:['sugar']},
+ {id:'basket',name:'ตะกร้าผ้า',x:1700,e:'🧺',es:84,items:['benedict']},
+ {id:'oldfridge',name:'ตู้เย็นเก่า',x:1845,w:82,h:152,css:'background:linear-gradient(#d6dcde 38%,#9aa3a7 38% 40%,#cfd6d8 40%);border-radius:10px 10px 4px 4px;',items:['butter']},
+ {id:'pot',name:'กระถางต้นไม้',x:2005,e:'🪴',es:92,items:[],empty:'มีแต่ดินกับไส้เดือนตัวหนึ่ง'},
+ {id:'tree',name:'ต้นฝรั่ง',x:2185,e:'🌳',es:200,items:['guava']},
+ {id:'bench',name:'ม้านั่ง',x:2360,w:124,h:44,css:'background:repeating-linear-gradient(90deg,#8b5a2b 0 28px,#744a22 28px 31px);border-radius:4px;',items:[],empty:'ม้านั่งว่างเปล่า มีใบไม้ร่วงอยู่'},
+ {id:'toolbox',name:'กล่องเครื่องมือสวน',x:2485,e:'🧰',es:70,items:['biuret']},
+ {id:'fridge',name:'ตู้เย็น',x:2612,w:82,h:184,css:'background:linear-gradient(#f1f5f6 34%,#b6c1c5 34% 36%,#e9eef0 36%);border:2px solid #b6c1c5;border-radius:10px 10px 4px 4px;',items:['egg','milk']},
+ {id:'wcab',name:'ตู้แขวน',x:2712,w:92,h:64,lift:118,css:'background:linear-gradient(90deg,#c7a77d 49%,#8e7150 49% 51%,#c7a77d 51%);',items:['tube','dropper']},
+ {id:'drawer',name:'ลิ้นชัก',x:2812,w:92,h:84,css:'background:repeating-linear-gradient(180deg,#c7a77d 0 25px,#8e7150 25px 28px);',items:['iodine','paper']},
+ {id:'sink',name:'ใต้ซิงก์',x:2912,w:92,h:84,css:'background:#b9c7cc;',top:'🚰',ts:40,items:['water','hcl','nahco3']},
+ {id:'stove',name:'เตา',x:3012,w:92,h:84,css:'background:#4a4f57;',top:'🍳',ts:40,items:['bath']},
+ {id:'lab',name:'โต๊ะทดลอง',x:3125,w:112,h:84,css:'background:#3b6e75;',top:'🔬',ts:46,items:[],lab:1},
+];
+
+/* ---------- state ---------- */
+let S;
+function fresh(){return{x:50,face:1,found:{},eq:{},searched:{},answers:{},logs:{},verified:{},tests:0,started:false,over:false,deadline:0,startAt:0};}
+S=fresh();
+
+const $=id=>document.getElementById(id);
+const world=$('world'),stage=$('stage');
+
+function iconHTML(o,cls=''){
+  if(o.e) return `<span class="ico ${cls}" style="background:#f6f1e3">${o.e}</span>`;
+  return `<span class="ico chip ${cls}" style="background:${o.cc}">${o.chip}</span>`;
+}
+
+/* ---------- build world ---------- */
+function build(){
+  let h='';
+  ROOMS.forEach((n,i)=>{
+    h+=`<div class="room r${i}" style="left:${i*640}px"><div class="wall"></div><div class="floor"></div><div class="base"></div><div class="roomname">${n}</div>`;
+    if(i===0) h+=`<div class="deco window" style="left:200px;top:60px;width:120px;height:100px"></div><div class="deco frame" style="left:470px;top:70px;width:70px;height:56px"></div>`;
+    if(i===1) h+=`<div class="deco window" style="left:860px;top:55px;width:110px;height:95px;left:220px"></div><div class="deco frame" style="left:380px;top:80px;width:56px;height:70px;background:#c8e0f0"></div>`;
+    if(i===2) h+=`<div class="deco" style="left:250px;top:30px;width:6px;height:60px;background:#555"></div><div class="deco" style="left:238px;top:88px;width:30px;height:20px;border-radius:0 0 15px 15px;background:#ffe9a6;box-shadow:0 0 40px 18px rgba(255,233,166,.5)"></div>`;
+    if(i===3) h+=`<div class="deco" style="left:470px;top:30px;width:56px;height:56px;border-radius:50%;background:#ffd45c;box-shadow:0 0 0 12px rgba(255,212,92,.25)"></div><div class="fence"></div>`;
+    if(i===4) h+=`<div class="deco window" style="left:180px;top:40px;width:120px;height:80px"></div>`;
+    h+='</div>';
+  });
+  [640,1280,1920,2560].forEach(b=>h+=`<div class="door" style="left:${b-26}px"></div>`);
+  HS.forEach(s=>{
+    const bottom=360-288+(s.lift||0);
+    let inner='';
+    if(s.e) inner=`<span class="emo" style="font-size:${s.es}px">${s.e}</span>`;
+    else inner=`<div class="body" style="width:${s.w}px;height:${s.h}px;${s.css}">${s.top?`<span class="emo" style="font-size:${s.ts}px;position:absolute;bottom:100%;margin-bottom:-6px">${s.top}</span>`:''}</div>`;
+    h+=`<div class="hs ${s.lab?'lab':''}" id="hs-${s.id}" style="left:${s.x}px;bottom:${bottom}px;transform:translateX(-50%)"><div class="tag">${s.name}</div>${inner}<span class="done">✓</span></div>`;
+  });
+  h+=`<div id="player"><div class="p"><div class="shadow"></div><div class="leg l1"></div><div class="leg l2"></div><div class="coat"></div><div class="head"></div><div class="hat"></div><div class="glass"></div></div></div>`;
+  world.innerHTML=h;
+}
+build();
+const player=$('player');
+
+/* ---------- camera ---------- */
+let scale=1;
+function layout(){
+  scale=stage.clientHeight/360;
+  render();
+}
+function render(){
+  const vw=stage.clientWidth;
+  let tx=vw/2-S.x*scale;
+  tx=Math.min(0,Math.max(vw-3200*scale,tx));
+  world.style.transform=`translateX(${tx}px) scale(${scale})`;
+  player.style.left=S.x+'px';
+  player.classList.toggle('flip',S.face<0);
+  const r=Math.min(4,Math.floor(S.x/640));
+  $('roomPill').textContent=ROOMS[r];
+  updateNear();
+}
+addEventListener('resize',layout);
+
+/* ---------- near / buttons ---------- */
+let near=null;
+function updateNear(){
+  let best=null,bd=56;
+  HS.forEach(s=>{const d=Math.abs(s.x-S.x);if(d<bd){bd=d;best=s;}});
+  if(best!==near){
+    if(near) $('hs-'+near.id).classList.remove('near');
+    near=best;
+    if(near) $('hs-'+near.id).classList.add('near');
+  }
+  $('pickBtn').disabled=!near||!!(near&&near.lab);
+  $('testBtn').disabled=!(near&&near.lab);
+}
+
+/* ---------- movement ---------- */
+let dir=0,keys={},last=0;
+function loop(t){
+  const dt=Math.min(.05,(t-last)/1000||0);last=t;
+  const d=dir||((keys.ArrowRight||keys.d?1:0)-(keys.ArrowLeft||keys.a?1:0));
+  const busy=!S.started||S.over||anyOverlay();
+  if(d&&!busy){
+    S.x=Math.max(30,Math.min(3170,S.x+d*230*dt));S.face=d;
+    player.classList.add('walk');render();
+  } else player.classList.remove('walk');
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+function anyOverlay(){return ['intro','bagOv','labOv','nbOv','endOv'].some(id=>!$(id).hidden);}
+function hold(btn,v){
+  btn.addEventListener('pointerdown',e=>{e.preventDefault();dir=v;btn.classList.add('held');try{btn.setPointerCapture(e.pointerId)}catch(_){} });
+  const up=()=>{if(dir===v)dir=0;btn.classList.remove('held');};
+  ['pointerup','pointercancel','lostpointercapture'].forEach(ev=>btn.addEventListener(ev,up));
+  btn.addEventListener('contextmenu',e=>e.preventDefault());
+}
+hold($('leftBtn'),-1);hold($('rightBtn'),1);
+addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(anyOverlay()){ if(e.key==='Escape') closeAll(); return; }
+  if(e.key==='e'||e.key===' ') {e.preventDefault();pick();}
+  if(e.key==='t') openLab();
+});
+addEventListener('keyup',e=>{keys[e.key]=false;});
+addEventListener('blur',()=>{keys={};dir=0;});
+document.addEventListener('gesturestart',e=>e.preventDefault());
+
+/* ---------- toast ---------- */
+let tt;
+function toast(msg,ms=2200){const el=$('toast');el.innerHTML=msg;el.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>el.classList.remove('show'),ms);}
+
+/* ---------- pick ---------- */
+function pick(){
+  if(!near||near.lab||S.over||!S.started) {if(near&&near.lab) toast('โต๊ะทดลอง ใช้ปุ่ม <b>ทดสอบ</b>');return;}
+  if(S.searched[near.id]){toast(`ค้น${near.name}ไปแล้ว ไม่มีอะไรเหลือ`);return;}
+  S.searched[near.id]=1;$('hs-'+near.id).classList.add('searched');
+  if(!near.items.length){toast(near.empty||'ว่างเปล่า');return;}
+  const got=near.items.map(k=>{
+    if(FOODS[k]){S.found[k]=1;return FOODS[k].name;}
+    S.eq[k]=1;return EQ[k].name;
+  });
+  toast(`เจอใน${near.name}: <b>${got.join(', ')}</b>`,2600);
+  counts();
+}
+$('pickBtn').addEventListener('click',pick);
+function counts(){
+  $('cntFood').textContent=Object.keys(S.found).length+'/10';
+  $('cntEq').textContent=Object.keys(S.eq).length+'/11';
+}
+
+/* ---------- timer ---------- */
+const LIMIT=15*60*1000;
+function tick(){
+  if(S.started&&!S.over){
+    const left=Math.max(0,S.deadline-Date.now());
+    const m=Math.floor(left/60000),s=Math.floor(left/1000)%60;
+    $('timer').textContent=`${m}:${String(s).padStart(2,'0')}`;
+    $('timer').classList.toggle('warn',left<60000);
+    if(left<=0){finish(true);}
+  }
+}
+setInterval(tick,250);
+
+/* ---------- overlays ---------- */
+function closeAll(){['bagOv','labOv','nbOv'].forEach(id=>{if(id==='labOv'&&!$(id).hidden)saveRun();$(id).hidden=true;});}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>{$(b.dataset.close).hidden=true;}));
+$('startBtn').addEventListener('click',()=>{
+  $('intro').hidden=true;S.started=true;S.startAt=Date.now();S.deadline=S.startAt+LIMIT;tick();
+  toast('สำรวจบ้านแล้วกด <b>หยิบ</b> เมื่อยืนใกล้เฟอร์นิเจอร์',3000);
+});
+
+/* bag */
+let bagTab='food';
+function renderBag(){
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t.dataset.tab===bagTab));
+  let h='';
+  if(bagTab==='food'){
+    FOOD_ORDER.forEach(k=>{const f=FOODS[k];
+      h+=S.found[k]?`<div class="card">${iconHTML(f)}<div style="min-width:0"><div class="nm">${f.name}</div></div></div>`
+        :`<div class="card missing"><span class="ico" style="background:var(--paper-2)">?</span><div class="nm">ยังไม่พบ</div></div>`;});
+  } else {
+    EQ_ORDER.forEach(k=>{const q=EQ[k];
+      h+=S.eq[k]?`<div class="card">${iconHTML(q)}<div style="min-width:0"><div class="nm">${q.name}</div><div class="label-tag">ฉลาก: ${q.label}</div></div></div>`
+        :`<div class="card missing"><span class="ico" style="background:var(--paper-2)">?</span><div class="nm">ยังไม่พบ</div></div>`;});
+  }
+  $('bagGrid').innerHTML=h;
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>{bagTab=t.dataset.tab;renderBag();}));
+$('bagBtn').addEventListener('click',()=>{if(!S.started||S.over)return;renderBag();$('bagOv').hidden=false;});
+
+/* ---------- lab simulation ---------- */
+const ACTS=[
+  {k:'iodine',l:'หยดสารละลายไอโอดีน',need:'iodine'},
+  {k:'benedict',l:'หยดสารละลายเบเนดิกต์',need:'benedict'},
+  {k:'biuret',l:'หยดสารละลายไบยูเรต',need:'biuret'},
+  {k:'starchI',l:'หยดลงในน้ำแป้งผสมไอโอดีน',need:'starchI'},
+  {k:'hcl',l:'เติมกรด HCl เจือจาง',need:'hcl'},
+  {k:'nahco3',l:'เติม NaHCO₃',need:'nahco3'},
+  {k:'heat',l:'ต้มในอ่างน้ำร้อน 2–3 นาที',need:'bath'},
+  {k:'cool',l:'ตั้งทิ้งไว้ให้เย็น',need:'bath'},
+  {k:'paper',l:'ถูตัวอย่างบนกระดาษ',need:'paper'},
+];
+const ALAB=Object.fromEntries(ACTS.map(a=>[a.k,a.l]));
+const IND=['iodine','benedict','biuret','starchI'];
+let run={sample:null,acts:[]};
+
+function props(k){return k==='water'?{}:FOODS[k].p;}
+function sampleName(k){return k==='water'?'น้ำเปล่า (หลอดควบคุม)':FOODS[k].name;}
+function sampleBase(k){return k==='water'?'rgba(205,232,250,.6)':FOODS[k].base;}
+
+function simulate(k,acts){
+  const p=props(k);
+  if(acts[0]==='paper'){
+    if(p.fat&&p.fatLow) return {paper:'faint',text:'เห็นรอยโปร่งแสงจาง ๆ และรอยไม่หายแม้แห้งแล้ว',pos:['fat']};
+    if(p.fat) return {paper:'fat',text:'กระดาษเป็นรอยโปร่งแสง ยกส่องเห็นแสงผ่าน และรอยไม่หายแม้แห้งแล้ว',pos:['fat']};
+    const moist=k==='water'||FOODS[k].moist;
+    return {paper:moist?'wet':'dry',text:moist?'เห็นรอยเปียก แต่เมื่อแห้งรอยหายไป กระดาษกลับมาทึบแสง':'ไม่เกิดรอยโปร่งแสง กระดาษยังทึบแสงเหมือนเดิม',pos:[]};
+  }
+  let acid=false,neutral=false,hydro=false,hasBen=false,benOK=false,heatedAfterBen=false,fizz=false,hot=false,coag=false;
+  const ind=new Set();let lastNote='';
+  acts.forEach((a,i)=>{
+    fizz=false;
+    if(IND.includes(a)){ind.add(a);if(a==='benedict')hasBen=true;}
+    if(a==='hcl'){acid=true;neutral=false;lastNote='เติมกรดแล้ว ไม่เห็นการเปลี่ยนแปลง';}
+    if(a==='nahco3'){if(acid&&!neutral){neutral=true;fizz=true;lastNote='มีฟองแก๊สเกิดขึ้นแล้วหยุดไป';}else lastNote='ไม่มีการเปลี่ยนแปลงที่สังเกตได้';}
+    if(a==='heat'){hot=true;if(acid&&!neutral)hydro=true;if(hasBen){heatedAfterBen=true;if(!acid||neutral)benOK=true;}if(p.coag)coag=true;lastNote=coag?'ไข่ขาวแข็งตัวเป็นก้อนสีขาวขุ่น':'ตัวอย่างร้อนขึ้น สีไม่เปลี่ยนแปลง';}
+    if(a==='cool'){hot=false;lastNote=coag?'เย็นลงแล้ว ไข่ขาวยังเป็นก้อนสีขาวขุ่น':'ตัวอย่างเย็นลงแล้ว';}
+  });
+  const r={color:coag?'rgba(252,252,250,.98)':sampleBase(k),ppt:false,text:lastNote||'ใส่ตัวอย่างในหลอดทดลองแล้ว',pos:[],fizz,layer:!!p.layer};
+  const oilNote=()=>{if(p.layer&&acts.length)r.text+=' · น้ำมันแยกชั้นลอยอยู่ด้านบน';};
+  if(ind.size>1){r.color='rgba(120,104,82,.85)';r.text='สารหลายชนิดผสมกันจนสีขุ่นปนกัน อ่านผลไม่ได้';return r;}
+  if(ind.size===1){
+    const i=[...ind][0];
+    if(i==='iodine'){
+      if(p.starch&&hot){r.color='rgba(232,205,160,.75)';r.text='ขณะร้อน สีน้ำเงินหายไป';}
+      else if(p.starch){r.color=hydro?'#5a5aa0':'#24245e';r.text=hydro?'สีน้ำเงินอมม่วงจางกว่าปกติ':'เปลี่ยนเป็นสีน้ำเงินเข้มอมม่วง';r.pos=['starch'];}
+      else if(p.vitc){r.color='rgba(236,205,150,.6)';r.text='สีน้ำตาลของไอโอดีนจางลงจนเกือบใส';}
+      else {r.color='#b3612a';r.text='สีน้ำตาลแดง ไม่เปลี่ยนแปลง';}
+    }
+    if(i==='benedict'){
+      const real=p.reducing||(p.sucrose&&hydro);
+      const red=real||(p.starch&&hydro);
+      if(benOK&&red){
+        r.ppt=true;
+        if(p.sugarLow&&!hydro){r.color='#e0a03a';r.text='เกิดตะกอนสีเหลืองส้ม';}
+        else {r.color='#d27a3a';r.text='เกิดตะกอนสีแดงอิฐ';}
+        if(real)r.pos=['sugar'];
+      }
+      else {r.color='#3a86c8';r.text=heatedAfterBen?'ยังเป็นสีฟ้า ไม่มีตะกอน':'สารละลายสีฟ้า';}
+    }
+    if(i==='biuret'){ if(p.protein){r.color='#8a3fa0';r.text='เปลี่ยนเป็นสีม่วง';r.pos=['protein'];} else {r.color='#7fbfe0';r.text='สีฟ้า ไม่เปลี่ยนแปลง';} }
+    if(i==='starchI'){ if(p.vitc){r.color='rgba(214,224,240,.7)';r.text='สีน้ำเงินจางหายจนเกือบใส';r.pos=['vitc'];} else {r.color='#2e3590';r.text='ยังคงเป็นสีน้ำเงิน';} }
+    if(acts[acts.length-1]==='nahco3'&&fizz) r.text+=' (มีฟองแก๊สเกิดขึ้น)';
+    if(coag&&i!=='biuret') r.text+=' · มีก้อนไข่ขาวสีขาวขุ่นในหลอด';
+  }
+  oilNote();
+  return r;
+}
+
+function renderLab(){
+  const sl=[...FOOD_ORDER.filter(k=>S.found[k])];
+  if(S.eq.water) sl.push('water');
+  $('sampleList').innerHTML=sl.length?sl.map(k=>{
+    const o=k==='water'?EQ.water:FOODS[k];
+    return `<button class="sbtn" data-s="${k}" aria-pressed="${run.sample===k}">${iconHTML(o)}${k==='water'?'น้ำเปล่า (ควบคุม)':o.name}</button>`;}).join('')
+    :'<div style="color:var(--muted);font-size:14px">ยังไม่มีอาหารในกระเป๋า</div>';
+  const isPaper=run.acts[0]==='paper';
+  $('actionList').innerHTML=ACTS.map(a=>{
+    const dis=!run.sample||isPaper||(a.k==='paper'&&run.acts.length>0);
+    return `<button class="abtn" data-a="${a.k}" ${dis?'disabled':''}>${a.l}</button>`;}).join('');
+  // vessel
+  const v=$('vessel');
+  if(!run.sample){v.innerHTML=tubeHTML();$('obsText').textContent='เลือกตัวอย่างใส่หลอดทดลอง';$('stepList').innerHTML='';return;}
+  const r=simulate(run.sample,run.acts);
+  if(isPaper){
+    const c=r.paper==='fat'?'rgba(230,220,170,.55);box-shadow:inset 0 0 10px rgba(200,180,90,.5)':r.paper==='faint'?'rgba(235,228,195,.35)':'rgba(0,0,0,0)';
+    v.innerHTML=`<div class="paperview"><div class="spot" style="background:${c}"></div></div>`;
+    v.style.width='130px';
+  } else {
+    v.style.width='';
+    v.innerHTML=tubeHTML();
+    requestAnimationFrame(()=>{
+      const liq=v.querySelector('.liquid');liq.style.backgroundColor=r.color;liq.style.height=(30+run.acts.filter(a=>!['heat','cool','paper'].includes(a)).length*14)+'%';
+      liq.style.borderTop=r.layer?'12px solid rgba(242,217,107,.95)':'0';
+      v.querySelector('.ppt').style.height=r.ppt?'18%':'0';
+      if(r.fizz){const b=v.querySelector('.bubbles');b.innerHTML=Array.from({length:8},(_,i)=>`<i style="left:${4+i*4}px;animation-delay:${i*.08}s"></i>`).join('');}
+    });
+  }
+  $('obsText').textContent=r.text;
+  $('stepList').innerHTML=`<ol><li>ใส่${sampleName(run.sample)}</li>${run.acts.map(a=>`<li>${ALAB[a]}</li>`).join('')}</ol>`;
+}
+function tubeHTML(){return `<div class="tube"><div class="liquid"></div><div class="ppt"></div><div class="bubbles"></div></div>`;}
+
+function saveRun(){
+  if(!run.sample||!run.acts.length){run={sample:run.sample,acts:[]};return;}
+  const r=simulate(run.sample,run.acts);
+  (S.logs[run.sample]=S.logs[run.sample]||[]).push({steps:run.acts.map(a=>ALAB[a]),text:r.text});
+  r.pos.forEach(n=>{(S.verified[run.sample]=S.verified[run.sample]||{})[n]=1;});
+  S.tests++;
+  run={sample:run.sample,acts:[]};
+}
+$('sampleList').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(!b)return;saveRun();run={sample:b.dataset.s,acts:[]};renderLab();});
+$('actionList').addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b||b.disabled)return;run.acts.push(b.dataset.a);renderLab();});
+$('resetTube').addEventListener('click',()=>{saveRun();run={sample:null,acts:[]};renderLab();});
+$('labClose').addEventListener('click',()=>{saveRun();$('labOv').hidden=true;});
+
+function openLab(){
+  if(!S.started||S.over||!(near&&near.lab))return;
+  const n=Object.keys(S.eq).length;
+  if(n<11){toast(`อุปกรณ์ยังไม่ครบ (${n}/11) ค้นหาให้ครบก่อนจึงจะทดสอบได้`,2600);return;}
+  run={sample:null,acts:[]};renderLab();
+  $('safety').hidden=!!S.safe;$('labMain').hidden=!S.safe;
+  if(!S.safe){S.safeChk=[0,0,0];document.querySelectorAll('[data-safe]').forEach(b=>b.setAttribute('aria-pressed','false'));$('safeGo').disabled=true;}
+  $('labOv').hidden=false;
+}
+document.querySelectorAll('[data-safe]').forEach(b=>b.addEventListener('click',()=>{
+  const i=+b.dataset.safe;S.safeChk[i]=S.safeChk[i]?0:1;b.setAttribute('aria-pressed',!!S.safeChk[i]);
+  $('safeGo').disabled=!S.safeChk.every(Boolean);
+}));
+$('safeGo').addEventListener('click',()=>{S.safe=true;$('safety').hidden=true;$('labMain').hidden=false;});
+$('testBtn').addEventListener('click',openLab);
+
+/* ---------- notebook ---------- */
+let confirmStep=false;
+function renderNB(){
+  let h='';
+  FOOD_ORDER.forEach(k=>{
+    const f=FOODS[k];
+    if(!S.found[k]){h+=`<div class="nb-row"><div class="nb-name" style="color:var(--muted)"><span class="ico" style="background:var(--paper-2);font-size:18px">?</span>ยังไม่พบ</div><div style="color:var(--muted);font-size:14px">หาอาหารชิ้นนี้ให้เจอก่อน</div></div>`;return;}
+    const ans=S.answers[k]||{};
+    const logs=(S.logs[k]||[]).slice(-3);
+    h+=`<div class="nb-row"><div class="nb-name">${iconHTML(f)}${f.name}</div><div style="min-width:0">
+      <div class="nuts">${Object.entries(NUTS).map(([n,l])=>`<button class="nut" data-k="${k}" data-n="${n}" aria-pressed="${!!ans[n]}">${l}</button>`).join('')}</div>
+      <div class="nb-log">${logs.length?logs.map(g=>`<div>${g.steps.join(' → ')} : <b style="color:var(--ink-2)">${g.text}</b></div>`).join(''):'<div>ยังไม่ได้ทดสอบ</div>'}</div>
+    </div></div>`;
+  });
+  $('nbBody').innerHTML='<div style="font-size:14px;color:var(--muted);margin-bottom:4px">แตะเลือกสารอาหารที่พบในอาหารแต่ละชนิด (เลือกได้มากกว่า 1)</div>'+h;
+}
+$('nbBody').addEventListener('click',e=>{const b=e.target.closest('.nut');if(!b)return;const a=S.answers[b.dataset.k]=S.answers[b.dataset.k]||{};a[b.dataset.n]=!a[b.dataset.n];b.setAttribute('aria-pressed',!!a[b.dataset.n]);resetConfirm();});
+function resetConfirm(){confirmStep=false;$('nbMsg').textContent='';$('nbCancel').hidden=true;$('nbSubmit').textContent='ส่งสมุดให้ยาย';}
+$('nbBtn').addEventListener('click',()=>{if(!S.started||S.over)return;renderNB();resetConfirm();$('nbOv').hidden=false;});
+$('nbCancel').addEventListener('click',resetConfirm);
+$('nbSubmit').addEventListener('click',()=>{
+  if(!confirmStep){
+    const blank=FOOD_ORDER.filter(k=>!Object.values(S.answers[k]||{}).some(Boolean)).length;
+    confirmStep=true;$('nbCancel').hidden=false;$('nbSubmit').textContent='ยืนยันส่ง';
+    $('nbMsg').textContent=blank?`ยังไม่ได้ตอบ ${blank} ข้อ ส่งแล้วแก้ไม่ได้`:'ส่งแล้วแก้ไม่ได้ แน่ใจไหม';
+    return;
+  }
+  $('nbOv').hidden=true;finish(false);
+});
+
+/* ---------- finish ---------- */
+const METHOD={
+  starch:'หยดไอโอดีน → สีน้ำเงินเข้มอมม่วง',
+  sugar:'หยดเบเนดิกต์ แล้วต้ม → ตะกอนสีแดงอิฐ',
+  protein:'หยดไบยูเรต → สีม่วง',
+  fat:'ถูบนกระดาษ → กระดาษโปร่งแสง',
+  vitc:'หยดลงในน้ำแป้งผสมไอโอดีน → สีน้ำเงินจางหาย',
+};
+const SUCROSE='ต้มกับกรด HCl → เติม NaHCO₃ ให้เป็นกลาง → หยดเบเนดิกต์แล้วต้ม → ตะกอนสีแดงอิฐ';
+function finish(timeout){
+  if(S.over)return;
+  closeAll();S.over=true;dir=0;
+  const used=Math.min(LIMIT,Date.now()-S.startAt);
+  let score=0,ver=0,rows='';
+  FOOD_ORDER.forEach(k=>{
+    const f=FOODS[k],ans=Object.keys(NUTS).filter(n=>(S.answers[k]||{})[n]);
+    const ok=ans.length===f.truth.length&&f.truth.every(n=>ans.includes(n));
+    const vOk=f.truth.every(n=>(S.verified[k]||{})[n]);
+    if(ok)score++;if(vOk)ver++;
+    const how=f.truth.map(n=>k==='sugar'&&n==='sugar'?SUCROSE:METHOD[n]).join('<br>');
+    rows+=`<tr><td><b>${f.name}</b>${f.truth.length>1||k==='sugar'?' <span class="label-tag">ตัวหลอก</span>':''}</td>
+      <td>${ans.length?ans.map(n=>NUTS[n]).join(', '):'—'}</td>
+      <td class="${ok?'ok':'no'}">${f.truth.map(n=>NUTS[n]).join(', ')} ${ok?'✓':'✗'}</td>
+      <td>${how}</td><td class="${vOk?'ok':'no'}">${vOk?'ทดสอบแล้ว':'ยังไม่ครบ'}</td></tr>`;
+  });
+  const mm=Math.floor(used/60000),ss=Math.floor(used/1000)%60;
+  $('endTitle').textContent=timeout?'หมดเวลา! ยายตรวจสมุดแล้ว':'ยายตรวจสมุดแล้ว';
+  $('endBody').innerHTML=`<div class="score">
+    <div class="stat"><div class="v">${score}/10</div><div class="k">ตอบสารอาหารถูก</div></div>
+    <div class="stat"><div class="v">${ver}/10</div><div class="k">ยืนยันด้วยการทดลองจริง</div></div>
+    <div class="stat"><div class="v">${mm}:${String(ss).padStart(2,'0')}</div><div class="k">เวลาที่ใช้</div></div>
+    <div class="stat"><div class="v">${S.tests}</div><div class="k">จำนวนครั้งที่ทดสอบ</div></div></div>
+    <div class="tablewrap"><table><thead><tr><th>อาหาร</th><th>คำตอบของหลาน</th><th>เฉลย</th><th>วิธีทดสอบที่ถูกต้อง</th><th>ทดลองยืนยัน</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p style="font-size:13.5px;color:var(--muted);margin:10px 0 0">น้ำตาลทรายเป็นซูโครส ซึ่งไม่ใช่น้ำตาลรีดิวซ์ จึงต้องย่อยด้วยกรดก่อน · ส้มและฝรั่งมีทั้งวิตามินซีและน้ำตาลรีดิวซ์ · นมมีทั้งโปรตีน ไขมัน และน้ำตาลแล็กโทส · แป้งที่ต้มกับกรดจะถูกย่อยเป็นกลูโคส จึงให้ผลบวกกับเบเนดิกต์ได้ แต่สารอาหารในอาหารนั้นยังคือแป้ง · ควรมีหลอดควบคุม (น้ำเปล่า) ไว้เทียบผลทุกครั้ง</p>`;
+  $('endOv').hidden=false;
+}
+$('againBtn').addEventListener('click',()=>{
+  S=fresh();run={sample:null,acts:[]};
+  document.querySelectorAll('.hs').forEach(e=>e.classList.remove('searched'));
+  counts();$('timer').textContent='15:00';$('timer').classList.remove('warn');
+  $('endOv').hidden=true;$('intro').hidden=false;render();
+});
+
+layout();counts();
+})();
+</script>
+
+</body>
+</html>
