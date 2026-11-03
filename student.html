@@ -21,11 +21,13 @@
     <button data-tab="profile">ข้อมูลส่วนตัว</button>
     <button data-tab="group">กลุ่ม</button>
     <button data-tab="chq">คำถามท้ายบท</button>
+    <button data-tab="game">เกม</button>
   </div>
   <section id="tab-work"></section>
   <section id="tab-scores" class="hidden"></section>
   <section id="tab-group" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
   <section id="tab-chq" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
+  <section id="tab-game" class="hidden"><div class="card muted">กำลังโหลด…</div></section>
   <section id="tab-profile" class="hidden">
     <div class="card narrow" style="margin-top:0">
       <h2>ข้อมูลส่วนตัว</h2>
@@ -61,11 +63,12 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, S
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
   runTransaction, deleteField } from "./js/common.js?v=5";
 import { CHAPTERS } from "./js/chapters.js?v=2";
+import { GAMES } from "./js/games.js?v=1";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["work", "scores", "profile", "group", "chq"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["work", "scores", "profile", "group", "chq", "game"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
 });
 $("#pf_sections").innerHTML = SECTIONS.map(s =>
   `<label><input type="checkbox" value="${esc(s.id)}"> ${esc(s.subject)} — ${esc(s.room)}</label>`).join("");
@@ -134,6 +137,19 @@ async function loadAll() {
   loadQuizScores(secIds);
   loadGroups();
   loadChapters();
+  loadGames();
+}
+
+/* ---------- เกม ---------- */
+function loadGames() {
+  const list = GAMES.filter(g => !g.sections || g.sections.some(id => me.sections.includes(id)));
+  if (!list.length) { $("#tab-game").innerHTML = `<div class="card muted">ยังไม่มีเกมสำหรับรายวิชาของเธอ</div>`; return; }
+  const cards = list.map(g => `<div class="assign pending">
+      <div class="t">${esc(g.title)} <span class="muted">· ${esc(g.subtitle || "")} · ${g.minutes} นาที</span></div>
+      <p style="margin:6px 0 10px">${esc(g.desc || "")}</p>
+      <a class="btn" href="${esc(g.file)}">🎮 เข้าเล่น</a></div>`).join("");
+  $("#tab-game").innerHTML = `<div class="card"><h2>🎮 เกม</h2>
+    <p class="muted">เล่นบนมือถือหรือไอแพดโดยหมุนจอเป็นแนวนอน (ปิดล็อกการหมุนจอก่อน) · กดปุ่ม "◀ กลับ" มุมซ้ายบนเพื่อกลับมาหน้านี้</p>${cards}</div>`;
 }
 
 /* ---------- คำถามท้ายบท ---------- */
