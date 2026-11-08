@@ -62,7 +62,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, S
   DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
   runTransaction, deleteField } from "./js/common.js?v=5";
-import { CHAPTERS } from "./js/chapters.js?v=2";
+import { CHAPTERS } from "./js/chapters.js?v=3";
 import { GAMES } from "./js/games.js?v=1";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
