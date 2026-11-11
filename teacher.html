@@ -1317,11 +1317,38 @@ $("#qzExport").onclick = () => {
 };
 
 /* ======================= นักเรียน ======================= */
+// ลิงก์ Web app ของ Apps Script ตัวรีเซ็ตรหัสผ่าน (คนละตัวกับบอท LINE)
+const RESET_API_URL = "";
+
+async function resetPasswordApi(uid) {
+  if (!RESET_API_URL) throw new Error("ยังไม่ได้ใส่ RESET_API_URL ใน teacher.html");
+  const idToken = await auth.currentUser.getIdToken();
+  let res;
+  try { res = await fetch(RESET_API_URL, { method: "POST", body: JSON.stringify({ action: "resetPassword", idToken, uid }) }); }
+  catch (e) { throw new Error("ติดต่อตัวรีเซ็ตรหัสผ่านไม่ได้ (ตรวจลิงก์ Web app และ Who has access: Anyone)"); }
+  let out;
+  try { out = await res.json(); } catch (e) { throw new Error("ตัวรีเซ็ตรหัสผ่านตอบกลับผิดรูปแบบ (ตรวจว่า Deploy เป็น Web app แล้ว)"); }
+  if (!out.ok) throw new Error(out.error || "รีเซ็ตรหัสผ่านไม่สำเร็จ");
+  return out.password;
+}
+
 function renderStudents() {
   $("#stuTitle").textContent = `${sectionLabel(sec)} — ${roster.length} คน`;
   $("#stuTable").innerHTML = `<tr><th>เลขที่</th><th>รหัส</th><th>ชื่อ - นามสกุล</th><th>ชื่อเล่น</th><th>วิชาที่สมัคร</th><th></th></tr>` +
     roster.map(s => `<tr><td class="num">${esc(s.no)}</td><td>${esc(s.studentId)}</td><td>${esc(fullName(s))}</td><td>${esc(s.nickname)}</td><td>${subjectsOf(s)}</td>
-      <td><button class="sm danger rm" data-uid="${s.uid}">เอาออกจากห้อง</button></td></tr>`).join("");
+      <td style="white-space:nowrap"><button class="sm ghost pwreset" data-uid="${s.uid}">รีเซ็ตรหัสผ่าน</button>
+        <button class="sm danger rm" data-uid="${s.uid}">เอาออกจากห้อง</button></td></tr>`).join("");
+  $$("#stuTable .pwreset").forEach(b => b.onclick = async () => {
+    const s = roster.find(x => x.uid === b.dataset.uid);
+    if (!confirm(`รีเซ็ตรหัสผ่านของ ${fullName(s)} (${s.studentId})?\nระบบจะให้รหัสชั่วคราว 6 หลัก และนักเรียนต้องตั้งรหัสใหม่เมื่อเข้าระบบ`)) return;
+    b.disabled = true; b.textContent = "กำลังรีเซ็ต…";
+    try {
+      const pw = await resetPasswordApi(s.uid);
+      await updateDoc(doc(db, "students", s.uid), { mustChangePw: true });
+      prompt(`รีเซ็ตแล้ว ✅\nบอก ${fullName(s)} ให้เข้าระบบด้วย\nรหัสนักเรียน: ${s.studentId}\nรหัสชั่วคราว: ${pw}\n\n(คัดลอกรหัสจากช่องด้านล่างได้)`, pw);
+    } catch (e) { toast(e.message || thError(e), "bad"); }
+    b.disabled = false; b.textContent = "รีเซ็ตรหัสผ่าน";
+  });
   $$("#stuTable .rm").forEach(b => b.onclick = async () => {
     const s = roster.find(x => x.uid === b.dataset.uid);
     if (!confirm(`เอา ${fullName(s)} ออกจาก ${sectionLabel(sec)}?`)) return;
