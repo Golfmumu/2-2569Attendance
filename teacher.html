@@ -1317,8 +1317,8 @@ $("#qzExport").onclick = () => {
 };
 
 /* ======================= นักเรียน ======================= */
-// ลิงก์ Web app ของ Apps Script ตัวรีเซ็ตรหัสผ่าน (คนละตัวกับบอท LINE)
-const RESET_API_URL = "";
+// ลิงก์ Web app ของ Apps Script ตัวรีเซ็ตรหัสผ่าน (คนละตัวกับบอท LINE) https://script.google.com/macros/s/AKfycbzo-VIXozinRUP5kB8XF9OPva9YrZYcsEDWYD4a1qlu2Zi0skN3-wZr0oSSmqRdPth3dA/exec
+const RESET_API_URL = "https://script.google.com/macros/s/AKfycbzo-VIXozinRUP5kB8XF9OPva9YrZYcsEDWYD4a1qlu2Zi0skN3-wZr0oSSmqRdPth3dA/exec";
 
 async function resetPasswordApi(uid) {
   if (!RESET_API_URL) throw new Error("ยังไม่ได้ใส่ RESET_API_URL ใน teacher.html");
