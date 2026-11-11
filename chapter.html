@@ -93,7 +93,7 @@
 <script type="module">
 import { auth, db, $, esc, toast, thError, thDate, isTeacherEmail,
   onAuthStateChanged, doc, getDoc, setDoc, updateDoc, serverTimestamp, arrayUnion } from "./js/common.js?v=5";
-import { CHAPTERS, CH_SALT } from "./js/chapters.js?v=3";
+import { CHAPTERS, CH_SALT } from "./js/chapters.js?v=4";
 
 const app = $("#app");
 const chId = new URLSearchParams(location.search).get("ch");
@@ -102,6 +102,11 @@ const ITEMS = ch ? ch.stages.flatMap((s, si) => s.items.map(it => ({ ...it, si }
 
 let user, me, preview = false, ref = null;
 let answers = {}, xp = 0, leaves = 0, status = null;
+// ข้อมูลหลายรอบ: rounds = จำนวนรอบที่ส่งแล้ว, bestScore = คะแนนจริง (รอบที่ดีที่สุด)
+let meta = { rounds: 0, bestScore: null, bestXp: 0, firstScore: null }, legacy = null, finishing = false;
+const REPLAY = !!ch?.replay;
+const AGAIN = new URLSearchParams(location.search).get("again") === "1";
+if (AGAIN) history.replaceState(null, "", `chapter.html?ch=${encodeURIComponent(chId)}`);
 let curStage = 0, curIdx = 0, combo = 0;
 let guardOn = false, warnOpen = false, lastLeave = 0, wantFs = false;
 
@@ -127,6 +132,13 @@ else onAuthStateChanged(auth, async u => {
       if (a.exists()) {
         const d = a.data();
         answers = d.answers || {}; xp = d.xp || 0; leaves = d.violations || 0; status = d.status;
+        meta = { rounds: d.rounds || 0, bestScore: d.bestScore ?? null, bestXp: d.bestXp || 0, firstScore: d.firstScore ?? null };
+        if (!d.rounds && (status === "done" || status === "locked")) {
+          // ข้อมูลที่ส่งไว้ก่อนมีระบบหลายรอบ = นับเป็นรอบที่ 1
+          const at = d.submittedAt?.toMillis ? d.submittedAt.toMillis() : Date.now();
+          legacy = { round: 1, score: d.score || 0, max: d.max || ITEMS.length, xp: d.xp || 0, violations: d.violations || 0, status, at };
+          meta = { rounds: 1, bestScore: legacy.score, bestXp: legacy.xp, firstScore: legacy.score };
+        }
         if (status === "doing") {
           // กลับเข้ามาหลังจากปิด/รีโหลดหน้า = นับเป็นการออกจากหน้า 1 ครั้ง
           await addLeave("ปิดหรือรีโหลดหน้าข้อสอบ");
@@ -139,7 +151,7 @@ else onAuthStateChanged(auth, async u => {
     return;
   }
   watermark(); setInterval(watermark, 30000);
-  if (status === "done" || status === "locked") return renderResult();
+  if (status === "done" || status === "locked") return REPLAY && AGAIN ? newRound() : renderResult();
   renderIntro();
 });
 
@@ -204,7 +216,7 @@ function hud(title, sub) {
 
 function renderIntro() {
   const resume = status === "doing";
-  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle)}
+  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle + (REPLAY ? ` · รอบที่ ${meta.rounds + 1}` : ""))}
     <div class="box">
       ${preview ? `<div class="fb half" style="margin:0 0 14px"><span class="msg">👩‍🏫 โหมดทดลองของครู — ไม่บันทึกคะแนน แต่ระบบกันทุจริตทำงานเหมือนนักเรียน</span></div>` : ""}
       ${resume ? `<div class="fb no" style="margin:0 0 14px"><span class="msg">คุณออกจากหน้าข้อสอบไปแล้ว <b>${leaves}</b> ครั้ง จาก ${ch.maxLeaves} ครั้ง ถ้าออกอีกจนครบ ระบบจะส่งคำตอบทันที</span></div>` : ""}
@@ -215,7 +227,7 @@ function renderIntro() {
         <li>เมื่อกดเริ่ม หน้าจอจะขยายเต็มจอ <b>ห้ามออกจากหน้านี้</b> ห้ามสลับแอป ห้ามเปิดแท็บอื่น ห้ามแคปหน้าจอ</li>
         <li>ออกจากหน้าครั้งแรก = เตือน · ครั้งที่ ${ch.maxLeaves} = <b>ระบบส่งคำตอบทันที</b> ทุกครั้งที่ออกจะถูกบันทึกให้ครูเห็น</li>
         <li>ปิดหรือรีโหลดหน้าระหว่างทำ ก็นับเป็นการออกจากหน้า</li>
-        <li>ทำได้ 1 ครั้ง ถ้ามีปัญหาให้แจ้งครูเพื่อรีเซ็ต</li>
+        <li>${REPLAY ? `เล่นซ้ำได้ไม่จำกัดรอบ <b>คะแนนจริงนับจากรอบที่ดีที่สุด</b>${meta.rounds ? ` (ตอนนี้ดีที่สุด ${meta.bestScore}/${ITEMS.length} จาก ${meta.rounds} รอบ)` : ""}` : "ทำได้ 1 ครั้ง ถ้ามีปัญหาให้แจ้งครูเพื่อรีเซ็ต"}</li>
       </ol>
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
         <button class="gbtn" id="go">${resume ? "ทำต่อ" : "เริ่มภารกิจ"}</button>
@@ -227,12 +239,23 @@ function renderIntro() {
 
 async function start() {
   $("#go").disabled = true;
-  if (!preview && status !== "doing") {
+  if (!preview && status === "again") {
+    try {
+      await updateDoc(ref, {
+        sectionIds: me.sections, status: "doing", answers: {}, xp: 0, score: 0, max: ITEMS.length, violations: 0, violationLog: [],
+        startedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+        ...(legacy ? { rounds: meta.rounds, bestScore: meta.bestScore, bestXp: meta.bestXp, firstScore: meta.firstScore, history: arrayUnion(legacy) } : {}),
+      });
+      legacy = null;
+      status = "doing";
+    } catch (err) { $("#go").disabled = false; return toast(thError(err), "bad"); }
+  } else if (!preview && status !== "doing") {
     try {
       await setDoc(ref, {
         uid: user.uid, chapterId: ch.id, sectionIds: me.sections, studentId: me.studentId, no: me.no ?? null,
         name: `${me.firstName} ${me.lastName}`.trim(), nickname: me.nickname || "",
         status: "doing", answers: {}, xp: 0, score: 0, max: ITEMS.length, violations: 0, violationLog: [],
+        rounds: 0, bestScore: null, bestXp: 0, firstScore: null, history: [],
         startedAt: serverTimestamp(), updatedAt: serverTimestamp(),
       });
       status = "doing";
@@ -259,7 +282,7 @@ function renderMap() {
       <h3>${esc(s.name)}</h3><p>${esc(s.desc)}</p><p>ผ่านด่านก่อนหน้าเพื่อปลดล็อก</p></div>`;
   }).join("");
   const badges = ch.stages.map((s, si) => `<span class="badge ${starsOf(si) >= 2 ? "" : "off"}">${esc(s.badge)}</span>`).join("");
-  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle)}
+  app.innerHTML = `${hud("ภารกิจพิชิต" + ch.title, ch.subtitle + (REPLAY ? ` · รอบที่ ${meta.rounds + 1}` : ""))}
     <div class="stages">${cards}</div>
     <div class="box" style="margin-top:16px"><div class="k muted2" style="margin-bottom:8px">เหรียญ (ผ่านด่านด้วย 2 ดาวขึ้นไป)</div><div class="badges">${badges}</div></div>`;
   $("#play").onclick = () => {
@@ -369,13 +392,28 @@ function renderStageDone() {
 
 /* ---------------- ส่งคำตอบ ---------------- */
 async function finish(how) {
+  if (finishing) return;
+  finishing = true;
   guardOn = false; warnOpen = false; wantFs = false;
   document.body.classList.remove("covered");
   status = how;
+  const t = totals();
+  const round = meta.rounds + 1;
+  const better = meta.bestScore === null || t.score > meta.bestScore || (t.score === meta.bestScore && xp > meta.bestXp);
+  meta = {
+    rounds: round,
+    bestScore: better ? t.score : meta.bestScore,
+    bestXp: better ? xp : meta.bestXp,
+    firstScore: meta.firstScore ?? t.score,
+  };
   if (!preview && ref) {
-    const t = totals();
-    try { await updateDoc(ref, { status: how, answers, xp, score: t.score, max: t.max, submittedAt: serverTimestamp(), updatedAt: serverTimestamp() }); }
-    catch (err) { toast("ส่งคำตอบไม่สำเร็จ: " + thError(err), "bad"); }
+    try {
+      await updateDoc(ref, {
+        status: how, answers, xp, score: t.score, max: t.max, ...meta,
+        history: arrayUnion({ round, score: t.score, max: t.max, xp, violations: leaves, status: how, at: Date.now() }),
+        submittedAt: serverTimestamp(), updatedAt: serverTimestamp(),
+      });
+    } catch (err) { toast("ส่งคำตอบไม่สำเร็จ: " + thError(err), "bad"); }
   }
   exitFs();
   renderResult();
@@ -391,7 +429,8 @@ function renderResult() {
       <span class="msg">ออกจากหน้าข้อสอบครบ ${ch.maxLeaves} ครั้ง ระบบจึงส่งคำตอบเท่าที่ทำไว้ (${unanswered} ข้อไม่ได้ตอบ)</span></div>` : ""}
     <div class="box">
       <div class="center"><div class="k" style="color:var(--g-green)">${status === "locked" ? "จบภารกิจ" : "ภารกิจสำเร็จ"}</div>
-        <div class="big">${t.score} / ${t.max}</div></div>
+        <div class="big">${t.score} / ${t.max}</div>
+        ${REPLAY && meta.rounds ? `<p class="muted2" style="margin:4px 0 0">รอบที่ ${meta.rounds} · คะแนนจริง (รอบที่ดีที่สุด) <b style="color:var(--g-green)">${meta.bestScore} / ${t.max}</b></p>` : ""}</div>
       <div class="stat2">
         <div><b>${xp}</b>XP รวม</div>
         ${ch.stages.map((s, si) => `<div><b class="stars">${starTxt(starsOf(si))}</b>${esc(s.name)}</div>`).join("")}
@@ -402,7 +441,17 @@ function renderResult() {
     <div class="box"><div class="k" style="font-size:1.2rem;margin-bottom:6px">หัวข้อที่ควรทบทวน</div>
       ${review.length ? review.map(r => `<div class="rev"><span>${esc(r)}</span></div>`).join("") : `<p class="muted2">ทำได้ครบทุกหัวข้อ เยี่ยมมาก!</p>`}
     </div>
-    <p><a class="gbtn" href="${preview ? "teacher.html" : "student.html"}" style="display:inline-flex;align-items:center;text-decoration:none">${preview ? "กลับหน้าครู" : "กลับหน้านักเรียน"}</a></p>`;
+    <p style="display:flex;gap:10px;flex-wrap:wrap">${REPLAY ? `<button class="gbtn" id="again">เล่นอีกรอบ</button>` : ""}
+      <a class="gbtn ${REPLAY ? "line" : ""}" href="${preview ? "teacher.html" : "student.html"}" style="display:inline-flex;align-items:center;text-decoration:none">${preview ? "กลับหน้าครู" : "กลับหน้านักเรียน"}</a></p>`;
+  if (REPLAY) $("#again").onclick = newRound;
+}
+
+/* ---------------- เล่นอีกรอบ ---------------- */
+function newRound() {
+  answers = {}; xp = 0; leaves = 0; combo = 0; curStage = 0; curIdx = 0;
+  finishing = false; lastLeave = 0;
+  status = "again";
+  renderIntro();
 }
 
 /* ---------------- กันทุจริต ---------------- */
