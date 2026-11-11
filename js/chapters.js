@@ -2,6 +2,7 @@
 // ถ้าจะแก้คำถามหรือเฉลย ให้ขอ Claude สร้างไฟล์นี้ใหม่ (เพราะต้องคำนวณรหัสเฉลยใหม่)
 // sections: null = ทุกห้องเห็น หรือใส่ id ห้อง เช่น ["sci3-r1","sci3-r2"]
 // maxLeaves: ออกจากหน้าข้อสอบได้กี่ครั้งก่อนระบบส่งคำตอบอัตโนมัติ
+// replay: true = เล่นซ้ำได้ไม่จำกัดรอบ คะแนนจริงนับรอบที่ดีที่สุด
 export const CH_SALT = "kg-ch-2569";
 export const CHAPTERS = [
  {
@@ -15,6 +16,7 @@ export const CHAPTERS = [
    "sci3-r4"
   ],
   "maxLeaves": 2,
+  "replay": true,
   "stages": [
    {
     "id": "s1",
@@ -429,6 +431,7 @@ export const CHAPTERS = [
    "bio-r1"
   ],
   "maxLeaves": 2,
+  "replay": true,
   "stages": [
    {
     "id": "s1",
@@ -765,6 +768,7 @@ export const CHAPTERS = [
    "sci3-r4"
   ],
   "maxLeaves": 2,
+  "replay": true,
   "stages": [
    {
     "id": "s1",
