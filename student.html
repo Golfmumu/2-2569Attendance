@@ -62,7 +62,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, S
   DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
   runTransaction, deleteField } from "./js/common.js?v=5";
-import { CHAPTERS } from "./js/chapters.js?v=3";
+import { CHAPTERS } from "./js/chapters.js?v=4";
 import { GAMES } from "./js/games.js?v=1";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
@@ -163,21 +163,35 @@ async function loadChapters() {
     if (a) scoreCards.push(chapterScoreCard(c, a));
     const n = c.stages.reduce((t, s) => t + s.items.length, 0);
     let state, btn;
+    const r = roundInfo(a);
+    const bestTxt = r.rounds ? ` · คะแนนดีที่สุด ${r.best}/${a.max ?? n} · เล่นแล้ว ${r.rounds} รอบ` : "";
     if (!a) { state = `<span class="pill leave">ยังไม่ได้ทำ</span>`; btn = "เริ่มทำ"; }
-    else if (a.status === "doing") { state = `<span class="pill late">ทำค้างไว้ · ออกจากหน้าแล้ว ${a.violations || 0}/${c.maxLeaves} ครั้ง</span>`; btn = "ทำต่อ"; }
+    else if (a.status === "doing") { state = `<span class="pill late">ทำค้างไว้ · ออกจากหน้าแล้ว ${a.violations || 0}/${c.maxLeaves} ครั้ง${bestTxt}</span>`; btn = "ทำต่อ"; }
     else {
-      state = `<span class="pill ${a.status === "locked" ? "absent" : "present"}">${a.status === "locked" ? "ส่งอัตโนมัติ" : "ส่งแล้ว"} · ${a.score ?? 0}/${a.max ?? n} คะแนน · ${a.xp || 0} XP</span>`;
-      btn = "ดูผล";
+      state = `<span class="pill ${a.status === "locked" ? "absent" : "present"}">${a.status === "locked" ? "ส่งอัตโนมัติ" : "ส่งแล้ว"}${c.replay ? bestTxt : ` · ${a.score ?? 0}/${a.max ?? n} คะแนน · ${a.xp || 0} XP`}</span>`;
+      btn = c.replay ? "ดูผลรอบล่าสุด" : "ดูผล";
     }
+    const again = c.replay && a && a.status !== "doing"
+      ? ` <a class="btn" href="chapter.html?ch=${encodeURIComponent(c.id)}&again=1">เล่นอีกรอบ</a>` : "";
     return `<div class="assign ${a ? (a.status === "doing" ? "soon" : "done") : "pending"}">
       <div class="t">${esc(c.title)} <span class="muted">· ${esc(c.subtitle || "")} · ${c.stages.length} ด่าน ${n} ข้อ</span></div>
       <div style="margin:8px 0">${state}</div>
-      <a class="btn" href="chapter.html?ch=${encodeURIComponent(c.id)}">${btn}</a></div>`;
+      <a class="btn" href="chapter.html?ch=${encodeURIComponent(c.id)}">${btn}</a>${again}</div>`;
   }));
   $("#tab-chq").innerHTML = `<div class="card"><h2>📘 คำถามท้ายบท</h2>
     <p class="muted">เมื่อกดเข้าทำแล้ว ห้ามออกจากหน้า ห้ามสลับแอป และห้ามแคปหน้าจอ ระบบจะบันทึกให้ครูเห็นทุกครั้ง</p>${cards.join("")}</div>`;
   $$("#tab-scores .chqScore").forEach(el => el.remove());
   $("#tab-scores").insertAdjacentHTML("beforeend", scoreCards.join(""));
+}
+
+// สรุปหลายรอบ (ข้อมูลเก่าที่ไม่มี rounds แต่ส่งแล้ว = 1 รอบ)
+function roundInfo(a) {
+  if (!a) return { rounds: 0 };
+  const finished = a.status === "done" || a.status === "locked";
+  const rounds = a.rounds || (finished ? 1 : 0);
+  if (!rounds) return { rounds: 0 };
+  return { rounds, best: a.bestScore ?? a.score ?? 0, first: a.firstScore ?? a.score ?? 0,
+    last: finished ? (a.score ?? 0) : (a.history?.at(-1)?.score ?? a.bestScore ?? 0) };
 }
 
 // การ์ดคะแนนคำถามท้ายบทในแท็บ "คะแนนของฉัน"
@@ -194,11 +208,13 @@ function chapterScoreCard(c, a) {
     : a.status === "locked" ? `<span class="pill absent">ส่งอัตโนมัติ (ออกจากหน้าครบ)</span>` : `<span class="pill present">ส่งแล้ว</span>`;
   return `<div class="card chqScore"><h2>📘 คะแนนคำถามท้ายบท — ${esc(c.title)} ${st}</h2>
     <div class="stats">
-      <div class="stat present"><b>${a.score ?? 0}</b>คะแนน / ${max}</div>
+      ${c.replay && roundInfo(a).rounds ? `<div class="stat present"><b>${roundInfo(a).best}</b>คะแนนดีที่สุด / ${max}</div>
+      <div class="stat leave"><b>${roundInfo(a).last}</b>รอบล่าสุด</div>
+      <div class="stat leave"><b>${roundInfo(a).rounds}</b>เล่นแล้ว (รอบ)</div>` : `<div class="stat present"><b>${a.score ?? 0}</b>คะแนน / ${max}</div>`}
       <div class="stat leave"><b>${a.xp || 0}</b>XP</div>
       <div class="stat ${a.violations ? "absent" : "present"}"><b>${a.violations || 0}</b>ออกจากหน้า (ครั้ง)</div>
     </div>
-    <div class="table-wrap"><table><tr><th>ด่าน</th><th class="num">ได้</th><th class="num">เต็ม</th></tr>${rows}</table></div></div>`;
+    <div class="table-wrap"><table><tr><th>ด่าน${c.replay ? " (รอบปัจจุบัน)" : ""}</th><th class="num">ได้</th><th class="num">เต็ม</th></tr>${rows}</table></div></div>`;
 }
 
 /* ---------- กลุ่ม ---------- */
