@@ -61,7 +61,7 @@
 import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, SECTIONS, SLOT_COUNT, SLOT_MAX,
   DEFAULT_MIDTERM_MAX, STUDENT_EMAIL_DOMAIN, isTeacherEmail, randomToken, LINE_BOT_ID,
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
-  runTransaction, deleteField } from "./js/common.js?v=5";
+  runTransaction, deleteField, updateDoc, updatePassword } from "./js/common.js?v=5";
 import { CHAPTERS } from "./js/chapters.js?v=4";
 import { GAMES } from "./js/games.js?v=1";
 
@@ -81,6 +81,7 @@ onAuthStateChanged(auth, async u => {
   user = u;
   const snap = await getDoc(doc(db, "students", u.uid));
   me = snap.exists() ? snap.data() : null;
+  if (me?.mustChangePw) return forceNewPassword();
   fillProfile();
   loadLine();
   if (!me || !me.sections?.length) {
@@ -91,6 +92,50 @@ onAuthStateChanged(auth, async u => {
   $("#who").textContent = `${fullName(me)} (${me.nickname})`;
   loadAll();
 });
+
+/* ---------- บังคับตั้งรหัสผ่านใหม่ หลังครูรีเซ็ต ---------- */
+function forceNewPassword() {
+  const box = document.createElement("div");
+  box.style.cssText = "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:16px";
+  box.innerHTML = `<form class="card" id="npForm" style="max-width:420px;width:100%;margin:0">
+    <h2 style="margin-top:0">🔑 ตั้งรหัสผ่านใหม่</h2>
+    <p class="muted">ครูรีเซ็ตรหัสผ่านให้แล้ว กรุณาตั้งรหัสผ่านใหม่ของตัวเองก่อนใช้งาน (ตั้งครั้งเดียว ครั้งต่อไปใช้รหัสนี้เข้าระบบ)</p>
+    <label>รหัสผ่านใหม่ (6 ตัวขึ้นไป ภาษาอังกฤษหรือตัวเลข)</label>
+    <input id="np1" type="password" minlength="6" required autocomplete="new-password">
+    <label>พิมพ์รหัสผ่านใหม่อีกครั้ง</label>
+    <input id="np2" type="password" minlength="6" required autocomplete="new-password">
+    <label style="display:flex;gap:6px;align-items:center;margin-top:8px"><input type="checkbox" id="npShow" style="width:auto"> แสดงรหัสผ่าน</label>
+    <p id="npWarn" class="muted" style="color:var(--bad)"></p>
+    <p><button type="submit" style="width:100%">บันทึกรหัสผ่านใหม่</button></p>
+  </form>`;
+  document.body.appendChild(box);
+  const thai = /[\u0E00-\u0E7F]/;
+  const check = () => {
+    const v = $("#np1").value + $("#np2").value;
+    $("#npWarn").textContent = thai.test(v) ? "แป้นพิมพ์เป็นภาษาไทยอยู่ — เปลี่ยนเป็นภาษาอังกฤษก่อนพิมพ์รหัสผ่าน" : "";
+  };
+  $("#np1").oninput = check; $("#np2").oninput = check;
+  $("#npShow").onchange = e => { $("#np1").type = $("#np2").type = e.target.checked ? "text" : "password"; };
+  $("#npForm").onsubmit = async e => {
+    e.preventDefault();
+    const p1 = $("#np1").value, p2 = $("#np2").value;
+    if (thai.test(p1 + p2)) return toast("รหัสผ่านต้องเป็นภาษาอังกฤษหรือตัวเลข", "bad");
+    if (p1.length < 6) return toast("รหัสผ่านต้องมีอย่างน้อย 6 ตัว", "bad");
+    if (p1 !== p2) return toast("รหัสผ่านทั้งสองช่องไม่ตรงกัน", "bad");
+    const btn = e.submitter; btn.disabled = true;
+    try {
+      await updatePassword(user, p1);
+      await updateDoc(doc(db, "students", user.uid), { mustChangePw: false });
+      toast("ตั้งรหัสผ่านใหม่แล้ว");
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      if ((err?.code || "").includes("requires-recent-login")) {
+        toast("กรุณาเข้าสู่ระบบใหม่ด้วยรหัสชั่วคราวอีกครั้ง", "bad");
+        setTimeout(() => signOut(auth).then(() => location.replace("index.html")), 1500);
+      } else { toast(thError(err), "bad"); btn.disabled = false; }
+    }
+  };
+}
 
 function fillProfile() {
   $("#pf_id").value = me?.studentId || user.email.replace("@" + STUDENT_EMAIL_DOMAIN, "");
