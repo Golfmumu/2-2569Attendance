@@ -63,7 +63,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, S
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, collection, query, where, serverTimestamp, Timestamp,
   runTransaction, deleteField, updateDoc, updatePassword } from "./js/common.js?v=5";
 import { CHAPTERS } from "./js/chapters.js?v=4";
-import { GAMES } from "./js/games.js?v=1";
+import { GAMES } from "./js/games.js?v=2";
 
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
