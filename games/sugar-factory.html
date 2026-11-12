@@ -227,15 +227,15 @@ $('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal()
 function loadDB(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {players:{},current:null}; }catch(e){ return {players:{},current:null}; } }
 let DB = loadDB();
 // เรียกจากสคริปต์ล็อกอินด้านล่าง: ใช้บัญชีนักเรียนในระบบเช็คชื่อ
-window.initPlayer = function(id,name,no){
+window.initPlayer = function(id,name,no,teacher){
   DB.players[id]=DB.players[id]||{levels:{},book:[]};
-  DB.players[id].name=name; DB.players[id].no=no;
+  DB.players[id].name=name; DB.players[id].no=no; DB.players[id].teacher=!!teacher;
   DB.current=id; saveDB(); showHome();
 };
 function saveDB(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
 function player(){ return DB.current ? DB.players[DB.current] : null; }
 function stars(l){ const p=player(); return (p && p.levels[l] && p.levels[l].stars) || 0; }
-function isUnlocked(l){ if(l===1) return true; if(l<4) return stars(l-1)>=1; return stars(1)+stars(2)+stars(3)>=6; }
+function isUnlocked(l){ const pl=player(); if(l===1||(pl&&pl.teacher)) return true; if(l<4) return stars(l-1)>=1; return stars(1)+stars(2)+stars(3)>=6; }
 function unlockBook(key){
   const p=player(); if(!p) return;
   if(!p.book.includes(key)){ p.book.push(key); if(G) G.newUnlocks.push(key); saveDB(); }
@@ -250,7 +250,7 @@ function showHome(){
   const total=[1,2,3,4].reduce((s,l)=>s+((p.levels[l]&&p.levels[l].score)||0),0);
   const totalStars=[1,2,3,4].reduce((s,l)=>s+stars(l),0);
   app.innerHTML = `
-    <a class="btn ghost backlink" href="../student.html">◀ กลับ</a>
+    <a class="btn ghost backlink" href="${p.teacher?'../teacher.html':'../student.html'}">◀ กลับ</a>${p.teacher?'<span class="pill" style="margin-left:8px">👩‍🏫 โหมดครู: ปลดล็อกทุกด่าน</span>':''}
     <h1 class="title">🏭 โรงงานน้ำตาล</h1>
     <p class="subtitle">วิชา${SUBJECT} · ${CLASS_NAME}</p>
     <div class="card row">
@@ -792,7 +792,7 @@ showHome();
 import { auth, db, onAuthStateChanged, doc, getDoc, isTeacherEmail, fullName } from "../js/common.js?v=5";
 onAuthStateChanged(auth, async u => {
   if (!u) return location.replace("../index.html");
-  if (isTeacherEmail(u.email)) return initPlayer(u.uid, "ครู (โหมดทดลอง)", "");
+  if (isTeacherEmail(u.email)) return initPlayer(u.uid, "ครู (โหมดทดลอง)", "", true);
   try {
     const s = await getDoc(doc(db, "students", u.uid));
     const me = s.exists() ? s.data() : {};
