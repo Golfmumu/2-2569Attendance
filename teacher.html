@@ -35,6 +35,7 @@
     <button data-tab="quiz">ตอบคำถาม</button>
     <button data-tab="grp">กลุ่ม</button>
     <button data-tab="chq">คำถามท้ายบท</button>
+    <button data-tab="game">เกม</button>
     <button data-tab="rep">สรุปการมาเรียน</button>
     <button data-tab="stu">รายชื่อนักเรียน</button>
   </div>
@@ -195,6 +196,15 @@
     </div>
   </section>
 
+  <!-- ============ เกม ============ -->
+  <section id="tab-game" class="hidden">
+    <div class="card">
+      <h2>🎮 เกม</h2>
+      <p class="muted">ลองเล่นเกมที่เปิดให้นักเรียน (โหมดครู ไม่บันทึกลงฐานข้อมูล) · เพิ่มเกมใหม่ได้ที่ไฟล์ js/games.js</p>
+      <div id="gameList"></div>
+    </div>
+  </section>
+
   <!-- ============ กลุ่ม ============ -->
   <section id="tab-grp" class="hidden">
     <div class="card">
@@ -275,6 +285,7 @@ import { auth, db, $, $$, esc, toast, thDate, thError, fullName, sectionLabel, s
   onAuthStateChanged, signOut, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc, collection, query, where,
   onSnapshot, writeBatch, serverTimestamp, Timestamp, arrayRemove, LINE_API_URL, lineApi, ATT_NOTIFY_MIN, deleteField } from "./js/common.js?v=5";
 import { CHAPTERS } from "./js/chapters.js?v=4";
+import { GAMES } from "./js/games.js?v=2";
 
 const STATUS = { present: "มา", late: "สาย", leave: "ลา", absent: "ขาด" };
 let sec = null, roster = [], sessions = [], curSess = null, attMap = {}, unsubAtt = null, unsubSess = null, rotTimer = null, barTimer = null;
@@ -284,8 +295,9 @@ let pending = {}; // การเปลี่ยนสถานะที่ย�
 $("#logout").onclick = () => signOut(auth).then(() => location.replace("index.html"));
 $$(".tabs button").forEach(b => b.onclick = () => {
   $$(".tabs button").forEach(x => x.classList.toggle("active", x === b));
-  ["att", "score", "work", "quiz", "grp", "chq", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
+  ["att", "score", "work", "quiz", "grp", "chq", "game", "rep", "stu"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== b.dataset.tab));
   if (b.dataset.tab === "rep") loadReport();
+  if (b.dataset.tab === "game") loadGamesT();
   if (b.dataset.tab === "chq") loadChq();
 });
 $("#secSel").innerHTML = SECTIONS.map(s => `<option value="${esc(s.id)}">${esc(s.subject)} — ${esc(s.room)}</option>`).join("");
@@ -1362,6 +1374,19 @@ $("#chqSel").innerHTML = CHAPTERS.map(c => `<option value="${esc(c.id)}">${esc(c
 $("#chqSel").onchange = loadChq;
 $("#chqReload").onclick = loadChq;
 let chqRows = [];
+/* ---------- เกม (ครูลองเล่น) ---------- */
+function loadGamesT() {
+  if (!GAMES.length) { $("#gameList").innerHTML = `<p class="muted">ยังไม่มีเกม</p>`; return; }
+  $("#gameList").innerHTML = GAMES.map(g => {
+    const rooms = g.sections ? g.sections.map(id => sectionLabel(id)).join(", ") : "ทุกห้อง";
+    return `<div class="card" style="margin:10px 0">
+      <b>${esc(g.title)}</b> <span class="muted">· ${esc(g.subtitle || "")} · ${g.minutes} นาที</span>
+      <p style="margin:6px 0">${esc(g.desc || "")}</p>
+      <p class="muted" style="margin:0 0 10px">ห้องที่เห็นเกมนี้: ${esc(rooms)}</p>
+      <a class="btn" href="${esc(g.file)}?from=teacher">▶️ ลองเล่น</a></div>`;
+  }).join("");
+}
+
 async function loadChq() {
   const c = CHAPTERS.find(x => x.id === $("#chqSel").value);
   if (!c) return;
