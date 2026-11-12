@@ -210,6 +210,7 @@ td.ok{color:var(--good);font-weight:600;} td.no{color:var(--bad);font-weight:600
 
   <div id="hud">
     <a class="hudbtn" id="backBtn" href="../student.html" style="text-decoration:none">◀ กลับ</a>
+    <script>if(new URLSearchParams(location.search).get("from")==="teacher")document.getElementById("backBtn").href="../teacher.html";</script>
     <div class="pill" id="roomPill">ห้องนั่งเล่น</div>
     <div class="spacer"></div>
     <div class="pill" id="timer">15:00</div>
