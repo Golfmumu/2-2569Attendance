@@ -11,4 +11,13 @@ export const GAMES = [
     file: "games/nutrient-detective.html",
     sections: ["daily-r1", "bio-r1"],
   },
+  {
+    id: "sugar-factory",
+    title: "โรงงานน้ำตาล",
+    subtitle: "คาร์โบไฮเดรตและพันธะไกลโคซิดิก",
+    desc: "รับคำสั่งซื้อจากลูกค้า ต่อมอโนแซ็กคาไรด์ด้วยพันธะไกลโคซิดิกเป็นไดแซ็กคาไรด์และพอลิแซ็กคาไรด์ ย่อยน้ำตาล และตรวจสินค้าด้วยไอโอดีนกับเบเนดิกต์",
+    minutes: 20,
+    file: "games/sugar-factory.html",
+    sections: ["daily-r1"],
+  },
 ];
