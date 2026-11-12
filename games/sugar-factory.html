@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>โรงงานน้ำตาล</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FFF6E9; --card:#FFFFFF; --ink:#3B2F2F; --muted:#8A7A70; --line:#EADBC8;
+  --brand:#E8833A; --brand2:#C65D1E; --good:#2E9E6A; --bad:#D94848; --water:#3FA7E0;
+  --uw:66px; --bw:58px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Sarabun',system-ui,sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+h1,h2,h3,.btn,.hud,.mitr{font-family:'Mitr','Sarabun',sans-serif}
+button{font:inherit}
+#app{max-width:1100px;margin:0 auto;padding:14px}
+.btn{border:0;border-radius:12px;padding:10px 16px;font-size:16px;cursor:pointer;background:var(--brand);color:#fff;box-shadow:0 3px 0 var(--brand2);transition:transform .08s}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--brand2)}
+.btn.ghost{background:#fff;color:var(--ink);box-shadow:0 3px 0 var(--line);border:1px solid var(--line)}
+.btn.green{background:var(--good);box-shadow:0 3px 0 #1F7550}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card{background:var(--card);border-radius:18px;border:1px solid var(--line);padding:16px;box-shadow:0 4px 14px rgba(120,80,40,.07)}
+.backlink{display:inline-block;text-decoration:none}
+.title{text-align:center;margin:10px 0 4px;font-size:34px;color:var(--brand2)}
+.subtitle{text-align:center;color:var(--muted);margin:0 0 18px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+input,select{font:inherit;font-size:16px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:#fff}
+
+/* home */
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0}
+.lv{position:relative;cursor:pointer}
+.lv.locked{opacity:.55;cursor:not-allowed}
+.lv h3{margin:0 0 4px}
+.lv .stars{font-size:22px;letter-spacing:2px}
+.lv .best{color:var(--muted);font-size:14px}
+.lock{position:absolute;right:14px;top:12px;font-size:22px}
+
+/* hud */
+.hud{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:15px}
+.pill.combo{background:#FFE7C2}
+.spacer{flex:1}
+
+/* customer */
+.customer{display:flex;gap:14px;align-items:center;margin-bottom:10px}
+.customer .emoji{font-size:48px;line-height:1}
+.customer .who{font-weight:600;font-family:'Mitr'}
+.customer .say{font-size:18px}
+.patience{height:8px;background:#F1E4D3;border-radius:6px;overflow:hidden;margin-top:6px}
+.patience>div{height:100%;background:var(--good);transition:width .1s linear}
+.msg{margin-top:8px;padding:8px 12px;border-radius:10px;background:#FDECEC;color:#8E2B2B;font-size:15px}
+
+/* factory */
+.factory{display:grid;grid-template-columns:170px 1fr 120px;gap:10px}
+@media (max-width:760px){.factory{grid-template-columns:1fr}.shelf .items{flex-direction:row!important;flex-wrap:wrap;justify-content:center}.tank{flex-direction:row!important;justify-content:center}}
+.shelf h3,.bench h3,.tank h3{margin:0 0 8px;font-size:16px}
+.shelf .items{display:flex;flex-direction:column;gap:8px;align-items:center}
+.unit{width:var(--uw);height:calc(var(--uw)*.9);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#2b2020;font-size:11px;line-height:1.15;text-align:center;font-weight:600;user-select:none;flex:0 0 auto;font-family:'Sarabun'}
+.unit small{font-size:10px;opacity:.75}
+.unit.hex{clip-path:polygon(25% 3%,75% 3%,100% 50%,75% 97%,25% 97%,0 50%)}
+.unit.pent{clip-path:polygon(50% 2%,100% 40%,81% 98%,19% 98%,0 40%)}
+[data-drag]{cursor:grab;touch-action:none}
+.shelf .unit:hover{filter:brightness(1.07)}
+.wh-btn{width:100%}
+
+.bench{min-height:230px;display:flex;flex-direction:column}
+.belt{flex:1;border-radius:14px;padding:16px 10px;background:repeating-linear-gradient(90deg,#E9DCCB 0 22px,#E2D2BE 22px 44px);border:2px dashed #CDB79C;overflow-x:auto;min-height:150px;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.belt.hover{border-color:var(--brand);background:repeating-linear-gradient(90deg,#F6E3CB 0 22px,#F0D8BA 22px 44px)}
+.chainrow{display:flex;align-items:center;white-space:nowrap;width:max-content}
+.empty{color:var(--muted);text-align:center;width:100%}
+.bond{width:var(--bw);display:flex;align-items:center;justify-content:center;gap:2px;flex:0 0 auto;font-size:13px;font-weight:700}
+.bond.bonded{color:#7A3E10}
+.bond.bonded span{background:#fff;border-radius:8px;padding:2px 4px;border:2px solid #C98A50}
+.bond.bonded.target{outline:3px dashed var(--water);outline-offset:2px;border-radius:8px}
+.bond .oh,.bond .h{background:#fff;border:2px solid #E35D5D;border-radius:8px;padding:3px 4px;animation:blink 1s infinite}
+.bond .h{border-color:#5A8FE3}
+.bond .oh.sel{background:#FFE0E0;animation:none;outline:3px solid #E35D5D}
+.bond .dropw{background:#E2F3FC;border:2px solid var(--water);border-radius:10px;padding:3px 5px;animation:bob 1s infinite}
+.bond.broken{color:var(--muted);gap:10px}
+.bond.broken span{font-size:12px}
+.bond.branchbond{flex-direction:column;font-size:11px}
+@keyframes blink{50%{opacity:.45}}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.counter{font-size:14px;color:var(--muted);margin-top:8px}
+.legend{font-size:13px;color:var(--muted)}
+
+.tank{display:flex;flex-direction:column;align-items:center;gap:8px}
+.glass{width:90px;height:120px;border:3px solid #9CC9E3;border-top:none;border-radius:0 0 18px 18px;position:relative;background:#fff;overflow:hidden}
+.glass .lvl{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(#8ED0F2,#3FA7E0);transition:height .4s}
+.glass .num{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Mitr';font-size:22px;color:#155A80}
+.tank.hover .glass{border-color:var(--brand)}
+.tankwater{font-size:15px;background:#E2F3FC;border:2px solid var(--water);border-radius:12px;padding:6px 8px;text-align:center}
+.tankwater.sel{outline:3px solid var(--water)}
+
+.controls{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;align-items:center}
+.controls .send{margin-left:auto;font-size:18px;padding:12px 22px}
+.toggle.on{background:#5E9E3C;box-shadow:0 3px 0 #3E7024}
+
+.dragghost{position:fixed;pointer-events:none;z-index:999;opacity:.9;transform:translate(-50%,-50%) scale(1.08)}
+.fly{position:fixed;z-index:998;font-size:24px;pointer-events:none}
+
+#toast{pointer-events:none;position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:6px;align-items:center;width:min(92vw,560px)}
+.t{padding:10px 16px;border-radius:12px;color:#fff;font-size:16px;box-shadow:0 6px 16px rgba(0,0,0,.15);animation:tin .2s}
+.t.good{background:var(--good)} .t.bad{background:var(--bad)} .t.info{background:#4A4A6A}
+@keyframes tin{from{transform:translateY(10px);opacity:0}}
+
+#modal{position:fixed;inset:0;background:rgba(40,25,10,.45);display:none;align-items:center;justify-content:center;z-index:900;padding:14px}
+#modal.show{display:flex}
+#modal .card{max-width:640px;width:100%;max-height:88vh;overflow:auto}
+.labels{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-top:10px}
+
+/* book */
+.book{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px}
+.entry{border:1px solid var(--line);border-radius:12px;padding:10px}
+.entry.locked{background:#F7F1EA;color:var(--muted)}
+.tag{display:inline-block;font-size:12px;border-radius:999px;padding:1px 8px;background:#FFE7C2;margin-left:6px}
+
+/* lab */
+.labgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.sample{display:flex;flex-direction:column;gap:8px}
+.tube{width:46px;height:90px;margin:0 auto;border:3px solid #B9C3CC;border-top:none;border-radius:0 0 23px 23px;background:#fff;position:relative;overflow:hidden}
+.tube>div{position:absolute;left:0;right:0;bottom:0;height:60%}
+.log{font-size:13px;min-height:54px;background:#FBF6F0;border-radius:8px;padding:6px 8px}
+.log div{margin:2px 0}
+.sample .btn{font-size:14px;padding:7px 10px}
+
+/* result */
+.result{text-align:center}
+.bigstars{font-size:54px;letter-spacing:6px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;text-align:left;max-width:440px;margin:12px auto}
+.stats div:nth-child(odd){color:var(--muted)}
+table.reveal{margin:10px auto;border-collapse:collapse}
+table.reveal td,table.reveal th{border:1px solid var(--line);padding:5px 10px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="toast"></div>
+<div id="modal"><div class="card" id="modalBody"></div></div>
+
+<script>
+/* ===================== ตั้งค่า ===================== */
+const SUBJECT = 'วิทยาศาสตร์เพื่อชีวิตประจำวัน';
+const CLASS_NAME = 'ห้อง 1';
+const STORE_KEY = 'sugarFactory_v1';
+
+/* ===================== ข้อมูล ===================== */
+const UNITS = {
+  glc:{name:'กลูโคส',  label:'กลูโคส',          color:'#F4B942', shape:'hex',  c:6},
+  fru:{name:'ฟรักโทส', label:'ฟรักโทส',         color:'#EF7F7C', shape:'pent', c:6},
+  gal:{name:'กาแล็กโทส',label:'กาแล็กโทส',       color:'#BE9BE0', shape:'hex',  c:6},
+  rib:{name:'ไรโบส',   label:'ไรโบส',           color:'#5ED3B1', shape:'pent', c:5},
+  dri:{name:'ดีออกซีไรโบส',label:'ดีออกซี-<br>ไรโบส',color:'#7DB8EC', shape:'pent', c:5},
+};
+const UNIT2SUB = {glc:'glucose',fru:'fructose',gal:'galactose',rib:'ribose',dri:'deoxyribose'};
+
+const SUBS = {
+  glucose:{name:'กลูโคส',kind:'mono',unit:'glc',comp:'น้ำตาล 6C (เฮกโซส)',info:'พบในเลือด น้ำผึ้ง ผลไม้ เป็นแหล่งพลังงานหลักของเซลล์'},
+  fructose:{name:'ฟรักโทส',kind:'mono',unit:'fru',comp:'น้ำตาล 6C (เฮกโซส) มีโครงสร้างวงแหวน 5 เหลี่ยม',info:'พบในผลไม้และน้ำผึ้ง เป็นน้ำตาลที่หวานที่สุด'},
+  galactose:{name:'กาแล็กโทส',kind:'mono',unit:'gal',comp:'น้ำตาล 6C (เฮกโซส)',info:'เป็นส่วนหนึ่งของแล็กโทสในนม'},
+  ribose:{name:'ไรโบส',kind:'mono',unit:'rib',comp:'น้ำตาล 5C (เพนโทส)',info:'องค์ประกอบของ RNA และ ATP'},
+  deoxyribose:{name:'ดีออกซีไรโบส',kind:'mono',unit:'dri',comp:'น้ำตาล 5C (เพนโทส)',info:'องค์ประกอบของ DNA'},
+  maltose:{name:'มอลโทส',kind:'di',parts:['glc','glc'],comp:'กลูโคส + กลูโคส',info:'พบในข้าวมอลต์ และเกิดจากการย่อยแป้ง'},
+  sucrose:{name:'ซูโครส',kind:'di',parts:['glc','fru'],comp:'กลูโคส + ฟรักโทส',info:'อ้อย น้ำตาลทราย ตาล'},
+  lactose:{name:'แล็กโทส',kind:'di',parts:['glc','gal'],comp:'กลูโคส + กาแล็กโทส',info:'น้ำตาลในนมของสัตว์เลี้ยงลูกด้วยนม'},
+  starch:{name:'แป้ง',kind:'poly',mono:'glc',branch:'any',comp:'กลูโคสต่อกันเป็นสายยาว มีทั้งสายตรง (อะไมโลส) และแตกกิ่ง (อะไมโลเพกทิน)',info:'พืชใช้สะสมพลังงาน เช่น ข้าว มัน เผือก'},
+  glycogen:{name:'ไกลโคเจน',kind:'poly',mono:'glc',branch:'yes',comp:'กลูโคสต่อกันเป็นสายยาว แตกกิ่งมาก',info:'สัตว์ใช้สะสมพลังงานที่ตับและกล้ามเนื้อ'},
+  cellulose:{name:'เซลลูโลส',kind:'poly',mono:'glc',branch:'no',comp:'กลูโคสต่อกันเป็นสายตรงยาว ไม่แตกกิ่ง',info:'ผนังเซลล์พืช และเป็นใยอาหาร'},
+  inulin:{name:'อินูลิน',kind:'poly',mono:'fru',branch:'no',comp:'ฟรักโทสต่อกันเป็นสายยาว',info:'หัวหอม แก่นตะวัน ชิโครี'},
+};
+const BOOK_ORDER = ['glucose','fructose','galactose','ribose','deoxyribose','maltose','sucrose','lactose','starch','glycogen','cellulose','inulin'];
+const KIND_TH = {mono:'มอโนแซ็กคาไรด์',di:'ไดแซ็กคาไรด์',poly:'พอลิแซ็กคาไรด์'};
+const EXTRA = [
+  ['เดกซ์แทรน','กลูโคส','สร้างโดยแบคทีเรีย เป็นส่วนหนึ่งของคราบหินปูนบนฟัน'],
+  ['ไคทิน','N-อะเซทิลกลูโคซามีน','เปลือกแมลง กุ้ง ปู และผนังเซลล์ของเห็ดรา'],
+  ['เพกทิน','กรดกาแล็กทูโรนิก','ผนังเซลล์ผลไม้ ใช้ทำแยม'],
+  ['วุ้น (agar)','กาแล็กโทส','ได้จากสาหร่ายสีแดง ใช้เลี้ยงเชื้อจุลินทรีย์'],
+  ['เพปทิโดไกลแคน','น้ำตาล + เพปไทด์','ผนังเซลล์แบคทีเรีย'],
+  ['กรดไฮยาลูโรนิก','น้ำตาลอะมิโน + กรดยูโรนิก','น้ำในข้อต่อ ผิวหนัง'],
+  ['เฮพาริน','น้ำตาลอะมิโนที่มีซัลเฟต','ป้องกันเลือดแข็งตัว'],
+];
+
+const HINTS = {
+  sucrose:[['🧁','ร้านเบเกอรี่','ขอน้ำตาลทรายไปทำเค้กหน่อย'],['🎋','ไร่อ้อย','ช่วยผลิตน้ำตาลแบบที่อยู่ในลำอ้อยให้หน่อย'],['🌴','ร้านน้ำตาลโตนด','ต้องการน้ำตาลแบบเดียวกับที่ได้จากต้นตาล']],
+  maltose:[['🌾','โรงงานข้าวมอลต์','ต้องการน้ำตาลที่พบในข้าวมอลต์'],['😋','ต่อมน้ำลาย','เอนไซม์ในน้ำลายย่อยแป้งได้น้ำตาลโมเลกุลคู่ชนิดหนึ่ง ขอแบบนั้นหนึ่งชุด']],
+  lactose:[['🥛','ฟาร์มโคนม','ต้องการน้ำตาลที่อยู่ในน้ำนม'],['🍦','ร้านไอศกรีมนมสด','ขอน้ำตาลแบบที่มีในนมวัว']],
+  starch:[['🌾','นาข้าว','ต้นข้าวอยากเก็บพลังงานไว้ในเมล็ด'],['🥔','ไร่มันสำปะหลัง','หัวมันต้องการสารไว้สะสมอาหาร']],
+  glycogen:[['🫀','ตับ','อยากเก็บพลังงานไว้ใช้ทีหลัง'],['💪','กล้ามเนื้อ','ขอสารสะสมพลังงานแบบของสัตว์']],
+  cellulose:[['🌱','ต้นไม้','อยากได้วัสดุสร้างผนังเซลล์'],['📄','โรงงานกระดาษ','ต้องการเส้นใยจากพืช']],
+  inulin:[['🧅','ไร่หัวหอม','หัวหอมอยากสะสมอาหารเป็นพอลิแซ็กคาไรด์ที่ต่อจากน้ำตาลผลไม้']],
+  glucose:[['🩸','กระแสเลือด','ต้องการน้ำตาลที่เซลล์ใช้สร้างพลังงานโดยตรง']],
+  fructose:[['🐝','รังผึ้ง','ต้องการน้ำตาลที่หวานที่สุด พบมากในผลไม้และน้ำผึ้ง']],
+  galactose:[['🧪','ห้องแล็บนม','ต้องการน้ำตาลที่จับคู่กับกลูโคสอยู่ในแล็กโทส']],
+  ribose:[['📜','แผนกสร้าง RNA','ต้องการน้ำตาลสำหรับสร้าง RNA'],['🔋','แผนกผลิต ATP','ต้องการน้ำตาล 5C ที่เป็นส่วนประกอบของ ATP']],
+  deoxyribose:[['🧬','นิวเคลียส','ต้องการน้ำตาลสำหรับสร้าง DNA']],
+  h_lactose:[['🫃','ลำไส้เล็ก','ช่วยย่อยน้ำตาลในนมให้เป็นน้ำตาลโมเลกุลเดี่ยวหน่อย']],
+  h_sucrose:[['🫃','ลำไส้เล็ก','ช่วยย่อยน้ำตาลทรายจากขนมให้เป็นน้ำตาลโมเลกุลเดี่ยวหน่อย']],
+  h_maltose:[['🫃','ลำไส้เล็ก','ช่วยย่อยน้ำตาลที่ได้จากการย่อยแป้งให้เป็นน้ำตาลโมเลกุลเดี่ยวหน่อย']],
+};
+
+const LEVELS = {
+  1:{title:'ด่าน 1 · ไดแซ็กคาไรด์',desc:'สร้างน้ำตาลโมเลกุลคู่ส่งลูกค้า 6 รายการ'},
+  2:{title:'ด่าน 2 · พอลิแซ็กคาไรด์',desc:'ต่อสายน้ำตาลยาวส่งลูกค้า 5 รายการ'},
+  3:{title:'ด่าน 3 · คำสั่งซื้อปนกัน',desc:'สร้าง ย่อย และเลือกน้ำตาล ทำให้ครบ 8 รายการใน 4 นาที'},
+  4:{title:'ด่านโบนัส · ห้องตรวจคุณภาพ',desc:'ทดสอบสินค้าไม่ติดฉลาก 5 ชิ้น (ปลดล็อกเมื่อได้ 6 ดาว)'},
+};
+
+/* ===================== utils ===================== */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const pick = a => a[Math.random()*a.length|0];
+const sameSet = (a,b) => a.length===b.length && a.slice().sort().join()===b.slice().sort().join();
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(text,type='info',ms=2600){
+  const t=document.createElement('div'); t.className='t '+type; t.textContent=text;
+  const box=$('#toast'); box.appendChild(t); while(box.children.length>3) box.firstChild.remove(); setTimeout(()=>t.remove(),ms);
+}
+function openModal(html){ $('#modalBody').innerHTML=html; $('#modal').classList.add('show'); }
+function closeModal(){ $('#modal').classList.remove('show'); }
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+
+/* ===================== storage ===================== */
+function loadDB(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {players:{},current:null}; }catch(e){ return {players:{},current:null}; } }
+let DB = loadDB();
+// เรียกจากสคริปต์ล็อกอินด้านล่าง: ใช้บัญชีนักเรียนในระบบเช็คชื่อ
+window.initPlayer = function(id,name,no){
+  DB.players[id]=DB.players[id]||{levels:{},book:[]};
+  DB.players[id].name=name; DB.players[id].no=no;
+  DB.current=id; saveDB(); showHome();
+};
+function saveDB(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
+function player(){ return DB.current ? DB.players[DB.current] : null; }
+function stars(l){ const p=player(); return (p && p.levels[l] && p.levels[l].stars) || 0; }
+function isUnlocked(l){ if(l===1) return true; if(l<4) return stars(l-1)>=1; return stars(1)+stars(2)+stars(3)>=6; }
+function unlockBook(key){
+  const p=player(); if(!p) return;
+  if(!p.book.includes(key)){ p.book.push(key); if(G) G.newUnlocks.push(key); saveDB(); }
+}
+
+/* ===================== home ===================== */
+let G = null;
+function showHome(){
+  stopTimer(); G=null; closeModal();
+  const p=player();
+  if(!p){ app.innerHTML=`<p class="subtitle" style="margin-top:40px">กำลังโหลดข้อมูลนักเรียน…</p>`; return; }
+  const total=[1,2,3,4].reduce((s,l)=>s+((p.levels[l]&&p.levels[l].score)||0),0);
+  const totalStars=[1,2,3,4].reduce((s,l)=>s+stars(l),0);
+  app.innerHTML = `
+    <a class="btn ghost backlink" href="../student.html">◀ กลับ</a>
+    <h1 class="title">🏭 โรงงานน้ำตาล</h1>
+    <p class="subtitle">วิชา${SUBJECT} · ${CLASS_NAME}</p>
+    <div class="card row">
+      <div><b>${esc(p.name)}</b>${p.no?` · เลขที่ ${esc(p.no)}`:''}</div>
+      <div class="spacer"></div>
+      <span class="pill">⭐ ${totalStars}</span>
+      <span class="pill">🏆 คะแนนรวม ${total}</span>
+      <button class="btn ghost" id="bk">📖 สมุดสูตร</button>
+      <button class="btn ghost" id="how">❓ วิธีเล่น</button>
+    </div>
+    <div class="levels">${[1,2,3,4].map(l=>{
+      const lv=p.levels[l]||{}; const un=isUnlocked(l); const s=lv.stars||0;
+      return `<div class="card lv ${un?'':'locked'}" data-l="${l}">
+        ${un?'':'<div class="lock">🔒</div>'}
+        <h3>${LEVELS[l].title}</h3>
+        <div style="margin-bottom:6px">${LEVELS[l].desc}</div>
+        <div class="stars">${'⭐'.repeat(s)}${'☆'.repeat(3-s)}</div>
+        <div class="best">คะแนนสูงสุด ${lv.score||0}</div>
+      </div>`;}).join('')}
+    </div>`;
+  document.querySelectorAll('.lv').forEach(el=>el.onclick=()=>{
+    const l=+el.dataset.l;
+    if(!isUnlocked(l)) return toast(l===4?'ต้องสะสมดาวจากด่าน 1–3 ให้ได้ 6 ดวงก่อน':'ต้องผ่านด่านก่อนหน้าก่อน','bad');
+    startLevel(l);
+  });
+  $('#bk').onclick=showBook; $('#how').onclick=showHow;
+}
+
+function showHow(){
+  openModal(`<h2 style="margin-top:0">❓ วิธีเล่น</h2>
+  <ol style="line-height:1.7">
+    <li>อ่านความต้องการของลูกค้า แล้วคิดว่าต้องผลิตคาร์โบไฮเดรตชนิดไหน</li>
+    <li><b>ลาก</b> (หรือแตะ) มอโนแซ็กคาไรด์จากชั้นวางมาวางบนสายพาน</li>
+    <li>เมื่อมี 2 โมเลกุลติดกัน ให้ลาก <b>–OH</b> ไปรวมกับ <b>H–</b> จะได้ 💧 H₂O</li>
+    <li>ลาก 💧 ไปทิ้งในถังน้ำ จะเกิด <b>พันธะไกลโคซิดิก</b> (–O–)</li>
+    <li>เมื่อสร้างพันธะด้วยมือครบ 2 พันธะ เครื่องจักรจะช่วยต่อพันธะต่อไปให้อัตโนมัติ</li>
+    <li>ถ้าลูกค้าขอให้ <b>ย่อย</b> ให้เลือกน้ำตาลจากคลัง แล้วลากน้ำจากถังไปใส่ที่พันธะ</li>
+    <li>กด <b>ส่งของ</b> แล้วติดฉลากชื่อสารให้ถูกต้อง</li>
+  </ol>
+  <p>❤️ มีหัวใจ 3 ดวง ส่งของผิดเสีย 1 ดวง · ส่งถูกติดกัน 3 ครั้งขึ้นไปได้คอมโบ ×1.5</p>
+  <button class="btn" onclick="closeModal()">เข้าใจแล้ว</button>`);
+}
+
+function showBook(){
+  const p=player(); const has=k=>p&&p.book.includes(k);
+  openModal(`<h2 style="margin-top:0">📖 สมุดสูตร (${BOOK_ORDER.filter(has).length}/${BOOK_ORDER.length})</h2>
+  <div class="book">${BOOK_ORDER.map(k=>{const s=SUBS[k];
+    return has(k)?`<div class="entry"><b>${s.name}</b><span class="tag">${KIND_TH[s.kind]}</span>
+      <div><small>องค์ประกอบ:</small> ${s.comp}</div><div><small>พบที่/หน้าที่:</small> ${s.info}</div></div>`
+    :`<div class="entry locked">🔒 ??? <span class="tag">${KIND_TH[s.kind]}</span><div><small>ผลิตให้สำเร็จเพื่อปลดล็อก</small></div></div>`;}).join('')}
+  </div>
+  <h3>ความรู้เสริม: พอลิแซ็กคาไรด์อื่น ๆ</h3>
+  <div class="book">${EXTRA.map(e=>`<div class="entry"><b>${e[0]}</b><div><small>หน่วยย่อย:</small> ${e[1]}</div><div><small>พบที่/หน้าที่:</small> ${e[2]}</div></div>`).join('')}</div>
+  <p><button class="btn" onclick="closeModal()">ปิด</button></p>`);
+}
+
+/* ===================== level setup ===================== */
+function mkOrder(key,type){
+  const h=pick(HINTS[type==='hydro'?'h_'+key:key]);
+  const pat = type==='mono'?25 : type==='hydro'?35 : (SUBS[key].kind==='poly'?70:40);
+  return {key,type,h,maxPat:pat,pat};
+}
+function gen3(){
+  const pool=[];
+  ['maltose','sucrose','lactose'].forEach(k=>pool.push([k,'build',1]));
+  ['starch','glycogen','cellulose','inulin'].forEach(k=>pool.push([k,'build',.6]));
+  ['glucose','fructose','galactose','ribose','deoxyribose'].forEach(k=>pool.push([k,'mono',.5]));
+  ['maltose','sucrose','lactose'].forEach(k=>pool.push([k,'hydro',.8]));
+  let o;
+  do{
+    let r=Math.random()*pool.reduce((s,x)=>s+x[2],0);
+    o=pool.find(x=>(r-=x[2])<0)||pool[0];
+  }while(G.cur && G.cur.key===o[0] && G.cur.type===o[1]);
+  return mkOrder(o[0],o[1]);
+}
+function startLevel(l){
+  stopTimer();
+  G={level:l,hearts:3,score:0,streak:0,progress:0,newUnlocks:[],ended:false,sel:null,msg:'',cur:null,
+     stats:{correct:0,wrong:0,bonds:0,waterMade:0,waterUsed:0}};
+  if(l===4){ startLab(); return; }
+  if(l===1){ G.goal=6; G.queue=shuffle(['maltose','maltose','sucrose','sucrose','lactose','lactose']).map(k=>mkOrder(k,'build')); }
+  if(l===2){ G.goal=5; G.queue=shuffle(['starch','glycogen','cellulose','inulin',pick(['starch','glycogen','cellulose'])]).map(k=>mkOrder(k,'build')); }
+  if(l===3){ G.goal=8; G.timeLeft=240; }
+  nextOrder(); renderGame();
+  if(l===3) startTimer();
+}
+function nextOrder(){
+  G.cur = G.level===3 ? gen3() : G.queue.shift();
+  G.msg=''; resetBench();
+}
+function resetBench(){ G.bench={units:[],bonds:[],branched:false,manual:0,loaded:null}; G.sel=null; }
+
+/* ===================== timer (ด่าน 3) ===================== */
+let tickId=null;
+function startTimer(){
+  stopTimer(); let last=performance.now();
+  tickId=setInterval(()=>{
+    if(!G||G.ended) return;
+    const now=performance.now(), dt=(now-last)/1000; last=now;
+    G.timeLeft-=dt; G.cur.pat-=dt;
+    if(G.timeLeft<=0){ G.timeLeft=0; return finishLevel(false,'หมดเวลา!'); }
+    if(G.cur.pat<=0) return customerLeaves();
+    updateTimers();
+  },100);
+}
+function stopTimer(){ if(tickId){ clearInterval(tickId); tickId=null; } }
+function fmt(s){ s=Math.max(0,Math.ceil(s)); return Math.floor(s/60)+':'+String(s%60).padStart(2,'0'); }
+function updateTimers(){
+  const t=$('#timer'); if(t) t.textContent='⏱️ '+fmt(G.timeLeft);
+  const b=$('#patbar'); if(b){ const r=Math.max(0,G.cur.pat/G.cur.maxPat); b.style.width=(r*100)+'%'; b.style.background=r>.5?'var(--good)':r>.25?'#E8A33A':'var(--bad)'; }
+}
+function customerLeaves(){
+  G.hearts--; G.score=Math.max(0,G.score-30); G.streak=0;
+  toast(`😤 ${G.cur.h[1]} รอไม่ไหวแล้ว เดินออกไป! −30`,'bad',3200);
+  if(G.hearts<=0) return finishLevel(false,'หัวใจหมดแล้ว');
+  nextOrder(); renderGame();
+}
+
+/* ===================== render game ===================== */
+function unitHTML(u,attrs=''){
+  const U=UNITS[u];
+  return `<div class="unit ${U.shape}" style="background:${U.color}" ${attrs}>${U.label}<small>${U.c}C</small></div>`;
+}
+function bondHTML(j,state,isBranch){
+  const br=isBranch?'<small style="font-size:10px">กิ่ง↳</small>':'';
+  if(state==='oh') return `<div class="bond" data-bi="${j}"><span class="oh ${G.sel&&G.sel.t==='oh'&&G.sel.i===j?'sel':''}" data-drag="oh" data-i="${j}">–OH</span><span class="h" data-drop="h" data-i="${j}">H–</span></div>`;
+  if(state==='water') return `<div class="bond" data-bi="${j}"><span class="dropw" data-drag="water" data-i="${j}">💧H₂O</span></div>`;
+  if(state==='broken') return `<div class="bond broken" data-bi="${j}"><span>OH</span><span>H</span></div>`;
+  const tgt = G.cur.type==='hydro' ? 'target' : '';
+  return `<div class="bond bonded ${tgt} ${isBranch?'branchbond':''}" data-bi="${j}" data-drop="bond" data-i="${j}" title="พันธะไกลโคซิดิก">${br}<span>–O–</span></div>`;
+}
+function renderGame(){
+  if(!G||G.ended) return;
+  const o=G.cur, b=G.bench, l=G.level, n=b.units.length;
+  const hydro=o.type==='hydro';
+  const bonded=b.bonds.filter(s=>s==='bonded').length;
+  const goalTxt = l===3?`📦 ${G.progress}/${G.goal}`:`📦 ${G.progress}/${G.goal}`;
+
+  // chain
+  let chain;
+  if(n===0){
+    chain = hydro ? `<div class="empty">เลือกน้ำตาลจาก <b>คลังสินค้า</b> ทางซ้ายมาวางบนสายพาน</div>`
+                  : `<div class="empty">ลากหรือแตะมอโนแซ็กคาไรด์จากชั้นวางมาวางที่นี่</div>`;
+  } else {
+    const bs = (b.branched && n>=6) ? n-Math.floor(n/3) : -1;
+    const piece = i => (i>0 ? bondHTML(i-1,b.bonds[i-1],i===bs) : '') + unitHTML(b.units[i]);
+    const mainEnd = bs>0?bs:n;
+    let row1='', row2='';
+    for(let i=0;i<mainEnd;i++) row1+=piece(i);
+    if(bs>0){ for(let i=bs;i<n;i++) row2+=piece(i); }
+    chain = `<div class="chainrow">${row1}</div>` + (bs>0?`<div class="chainrow"><div style="width:calc(2*(var(--uw) + var(--bw)) - var(--bw)/2)"></div>${row2}</div>`:'');
+  }
+
+  const shelf = hydro
+    ? `<h3>📦 คลังสินค้า</h3><div class="items">${['maltose','sucrose','lactose'].map(k=>`<button class="btn ghost wh-btn" data-wh="${k}">${SUBS[k].name}</button>`).join('')}</div>`
+    : `<h3>🧺 ชั้นวางวัตถุดิบ</h3><div class="items">${Object.keys(UNITS).map(u=>unitHTML(u,`data-drag="unit" data-u="${u}" title="${UNITS[u].name}"`)).join('')}</div>`;
+
+  const water = G.stats.waterMade - G.stats.waterUsed;
+  const tank = `<h3>💧 ถังน้ำ</h3>
+    <div class="glass" data-drop="tank"><div class="lvl" style="height:${Math.min(100,water*6)}%"></div><div class="num">${water}</div></div>
+    ${hydro?`<div class="tankwater ${G.sel&&G.sel.t==='tw'?'sel':''}" data-drag="tw">💧 ลากน้ำ<br>ไปที่พันธะ</div>`:'<div class="legend" style="text-align:center">ลาก 💧 มาทิ้งที่นี่</div>'}`;
+
+  const counter = n ? `โมเลกุล ${n} หน่วย · พันธะไกลโคซิดิก ${bonded} พันธะ · ${hydro?`ใช้น้ำย่อย ${b.bonds.filter(s=>s==='broken').length} โมเลกุล`:`น้ำที่เกิดขึ้น ${bonded} โมเลกุล`}` : '';
+
+  app.innerHTML = `
+  <div class="hud">
+    <button class="btn ghost" id="home">🏠</button>
+    <span class="pill"><b>${LEVELS[l].title}</b></span>
+    <span class="pill">${'❤️'.repeat(G.hearts)}${'🤍'.repeat(3-G.hearts)}</span>
+    <span class="pill">🏆 ${G.score}</span>
+    ${G.streak>=2?`<span class="pill combo">🔥 คอมโบ ${G.streak}</span>`:''}
+    <span class="pill">${goalTxt}</span>
+    ${l===3?`<span class="pill" id="timer">⏱️ ${fmt(G.timeLeft)}</span>`:''}
+    <div class="spacer"></div>
+    <button class="btn ghost" id="bk">📖</button>
+  </div>
+  <div class="card customer">
+    <div class="emoji">${o.h[0]}</div>
+    <div style="flex:1">
+      <div class="who">${o.h[1]} ${o.type==='hydro'?'<span class="tag">ขอให้ย่อย</span>':''}</div>
+      <div class="say">“${o.h[2]}”</div>
+      ${l===3?`<div class="patience"><div id="patbar"></div></div>`:''}
+      ${G.msg?`<div class="msg">💬 ${G.msg}</div>`:''}
+    </div>
+  </div>
+  <div class="factory">
+    <div class="card shelf">${shelf}</div>
+    <div class="card bench">
+      <h3>🏭 สายพานการผลิต</h3>
+      <div class="belt" data-drop="bench">${chain}</div>
+      <div class="counter">${counter}</div>
+      <div class="legend">–O– = พันธะไกลโคซิดิก</div>
+    </div>
+    <div class="card tank">${tank}</div>
+  </div>
+  <div class="controls">
+    <button class="btn ghost" id="undo">↩️ เอาชิ้นล่าสุดออก</button>
+    <button class="btn ghost" id="clr">🗑️ ล้างสายพาน</button>
+    ${l>=2&&!hydro?`<button class="btn toggle ${b.branched?'on':''}" id="br">🌿 แตกกิ่ง: ${b.branched?'เปิด':'ปิด'}</button>`:''}
+    <button class="btn green send" id="send">🚚 ส่งของ</button>
+  </div>`;
+
+  $('#home').onclick=()=>{ if(confirm('ออกจากด่านนี้? ความคืบหน้าในด่านจะหายไป')) showHome(); };
+  $('#bk').onclick=showBook;
+  $('#undo').onclick=undo;
+  $('#clr').onclick=()=>{ resetBench(); renderGame(); };
+  if($('#br')) $('#br').onclick=()=>{ b.branched=!b.branched; if(b.branched&&n<6) toast('การแตกกิ่งจะเห็นเมื่อสายยาวตั้งแต่ 6 หน่วยขึ้นไป','info'); renderGame(); };
+  $('#send').onclick=onSend;
+  document.querySelectorAll('[data-wh]').forEach(el=>el.onclick=()=>loadWarehouse(el.dataset.wh));
+  if(l===3) updateTimers();
+}
+
+/* ===================== actions ===================== */
+function addUnit(u){
+  const b=G.bench;
+  if(G.cur.type==='hydro') return;
+  if(b.bonds.some(s=>s==='oh'||s==='water')) return toast('สร้างพันธะให้เสร็จก่อน แล้วค่อยเติมชิ้นใหม่','bad');
+  if(b.units.length>=14) return toast('สายพานเต็มแล้ว','bad');
+  b.units.push(u);
+  if(b.units.length>1){
+    if(b.manual>=2){
+      b.bonds.push('bonded'); G.stats.bonds++; G.stats.waterMade++;
+      renderGame(); flyWater(b.bonds.length-1,'toTank');
+      return;
+    }
+    b.bonds.push('oh');
+  }
+  renderGame();
+}
+function formWater(i){
+  const b=G.bench; if(b.bonds[i]!=='oh') return;
+  b.bonds[i]='water'; G.sel=null; renderGame();
+}
+function waterToTank(i){
+  const b=G.bench; if(b.bonds[i]!=='water') return;
+  b.bonds[i]='bonded'; b.manual++; G.stats.bonds++; G.stats.waterMade++;
+  renderGame(); flyWater(i,'toTank');
+  if(b.manual===2 && G.level>=2) toast('⚙️ เครื่องจักรพร้อมแล้ว! ชิ้นต่อไปจะต่อพันธะให้อัตโนมัติ','info',3200);
+}
+function hydrolyze(i){
+  const b=G.bench; if(G.cur.type!=='hydro'||b.bonds[i]!=='bonded') return;
+  flyWater(i,'fromTank');
+  b.bonds[i]='broken'; G.stats.waterUsed++; G.sel=null; renderGame();
+  toast('💥 น้ำเข้าไปสลายพันธะไกลโคซิดิก ได้น้ำตาลโมเลกุลเดี่ยว 2 โมเลกุล','good');
+}
+function loadWarehouse(k){
+  resetBench(); G.bench.units=SUBS[k].parts.slice(); G.bench.bonds=['bonded']; G.bench.loaded=k; renderGame();
+}
+function undo(){
+  const b=G.bench;
+  if(G.cur.type==='hydro'){ resetBench(); return renderGame(); }
+  if(!b.units.length) return;
+  b.units.pop(); if(b.bonds.length) b.bonds.pop();
+  G.sel=null; renderGame();
+}
+function flyWater(i,dir){
+  const bond=document.querySelector(`[data-bi="${i}"]`), tank=document.querySelector('.glass');
+  if(!bond||!tank||!bond.animate) return;
+  const a=bond.getBoundingClientRect(), c=tank.getBoundingClientRect();
+  const s={x:a.left+a.width/2,y:a.top+a.height/2}, e={x:c.left+c.width/2,y:c.top+c.height/2};
+  const [p,q]=dir==='toTank'?[s,e]:[e,s];
+  const d=document.createElement('div'); d.className='fly'; d.textContent='💧'; d.style.left=p.x+'px'; d.style.top=p.y+'px';
+  document.body.appendChild(d);
+  d.animate([{transform:'translate(-50%,-50%)'},{transform:`translate(calc(-50% + ${q.x-p.x}px),calc(-50% + ${q.y-p.y}px))`}],{duration:550,easing:'ease-in-out',fill:'forwards'});
+  setTimeout(()=>d.remove(),600);
+}
+
+/* ===================== drag & tap ===================== */
+let drag=null;
+document.addEventListener('pointerdown',e=>{
+  const el=e.target.closest('[data-drag]');
+  if(!el||!G||G.ended) return;
+  e.preventDefault();
+  drag={el,kind:el.dataset.drag,i:+el.dataset.i,u:el.dataset.u,x:e.clientX,y:e.clientY,ghost:null,hover:null};
+});
+document.addEventListener('pointermove',e=>{
+  if(!drag) return;
+  if(!drag.ghost){
+    if(Math.hypot(e.clientX-drag.x,e.clientY-drag.y)<8) return;
+    drag.ghost=drag.el.cloneNode(true); drag.ghost.classList.add('dragghost'); document.body.appendChild(drag.ghost);
+  }
+  drag.ghost.style.left=e.clientX+'px'; drag.ghost.style.top=e.clientY+'px';
+  const t=document.elementFromPoint(e.clientX,e.clientY);
+  const zone=t&&(t.closest('.belt')||t.closest('.tank'));
+  if(drag.hover&&drag.hover!==zone) drag.hover.classList.remove('hover');
+  if(zone && ((drag.kind==='unit'&&zone.classList.contains('belt'))||(drag.kind==='water'&&zone.classList.contains('tank')))){ zone.classList.add('hover'); drag.hover=zone; }
+});
+function endDrag(e,cancel){
+  if(!drag) return; const d=drag; drag=null;
+  if(d.hover) d.hover.classList.remove('hover');
+  if(d.ghost){ d.ghost.remove(); if(!cancel) handleDrop(d,document.elementFromPoint(e.clientX,e.clientY)); }
+  else if(!cancel) handleTap(d);
+}
+document.addEventListener('pointerup',e=>endDrag(e,false));
+document.addEventListener('pointercancel',e=>endDrag(e,true));
+
+function handleDrop(d,t){
+  if(!t||!G||G.ended) return;
+  if(d.kind==='unit'){ if(t.closest('[data-drop="bench"]')) addUnit(d.u); return; }
+  if(d.kind==='oh'){ const h=t.closest('[data-drop="h"]'); if(h&&+h.dataset.i===d.i) formWater(d.i); else toast('ลาก –OH ไปรวมกับ H– ที่อยู่ข้าง ๆ','bad'); return; }
+  if(d.kind==='water'){ if(t.closest('.tank')) waterToTank(d.i); else toast('ลาก 💧 ไปทิ้งในถังน้ำ','bad'); return; }
+  if(d.kind==='tw'){ const bd=t.closest('[data-drop="bond"]'); if(bd) hydrolyze(+bd.dataset.i); else if(!G.bench.units.length) toast('เลือกน้ำตาลจากคลังสินค้าก่อน','bad'); else toast('ลากน้ำไปวางที่พันธะ –O–','bad'); }
+}
+function handleTap(d){
+  if(d.kind==='unit') return addUnit(d.u);
+  if(d.kind==='oh'){ G.sel={t:'oh',i:d.i}; renderGame(); return toast('แตะ H– เพื่อรวมเป็นน้ำ','info',1500); }
+  if(d.kind==='water') return waterToTank(d.i);
+  if(d.kind==='tw'){ G.sel={t:'tw'}; renderGame(); return toast('แตะที่พันธะ –O– เพื่อเติมน้ำ','info',1500); }
+}
+document.addEventListener('click',e=>{
+  if(!G||G.ended||!G.sel) return;
+  const h=e.target.closest('[data-drop="h"]');
+  if(h && G.sel.t==='oh' && +h.dataset.i===G.sel.i) return formWater(G.sel.i);
+  const bd=e.target.closest('[data-drop="bond"]');
+  if(bd && G.sel.t==='tw') return hydrolyze(+bd.dataset.i);
+});
+
+/* ===================== judging ===================== */
+function matchesBuild(key,units,branched){
+  const s=SUBS[key], n=units.length;
+  if(s.kind==='di') return n===2 && sameSet(units,s.parts);
+  if(s.kind==='poly'){
+    if(n<6||!units.every(u=>u===s.mono)) return false;
+    if(s.branch==='yes') return branched;
+    if(s.branch==='no') return !branched;
+    return true;
+  }
+  return false;
+}
+function findDi(units){ return ['maltose','sucrose','lactose'].find(k=>sameSet(units,SUBS[k].parts)); }
+function describeBuild(units,branched){
+  const n=units.length;
+  if(n===1) return `นี่คือ${UNITS[units[0]].name} ซึ่งเป็นมอโนแซ็กคาไรด์`;
+  if(n===2){ const k=findDi(units); return k?`นี่คือ${SUBS[k].name} (${SUBS[k].comp})`:`${UNITS[units[0]].name} + ${UNITS[units[1]].name} ไม่ใช่ไดแซ็กคาไรด์ในบทเรียนนี้`; }
+  if(n<6) return `สายนี้ยาว ${n} หน่วย สั้นเกินไปสำหรับพอลิแซ็กคาไรด์ในเกมนี้ (ต้องยาวอย่างน้อย 6 หน่วย)`;
+  if(new Set(units).size>1) return 'พอลิแซ็กคาไรด์ในบทเรียนนี้ต่อจากมอโนแซ็กคาไรด์ชนิดเดียวกันทั้งสาย';
+  return `นี่คือสาย${UNITS[units[0]].name} ${n} หน่วย แบบ${branched?'แตกกิ่ง':'สายตรง'}`;
+}
+function polyHint(key,b){
+  const s=SUBS[key];
+  if(s.kind!=='poly'||b.units.length<6||!b.units.every(u=>u===s.mono)) return '';
+  if(s.branch==='yes'&&!b.branched) return 'สารที่ลูกค้าต้องการแตกกิ่งมาก';
+  if(s.branch==='no'&&b.branched) return 'สารที่ลูกค้าต้องการเป็นสายตรง ไม่แตกกิ่ง';
+  return '';
+}
+function onSend(){
+  const o=G.cur, b=G.bench;
+  if(o.type==='hydro'){
+    if(!b.loaded) return toast('เลือกน้ำตาลจากคลังสินค้าก่อน','bad');
+    if(b.bonds.some(s=>s!=='broken')) return toast('ยังไม่ได้ย่อย: ลากน้ำจากถังไปใส่ที่พันธะ –O–','bad');
+    if(b.loaded===o.key) return success();
+    return wrong(`ย่อย${SUBS[b.loaded].name}แล้ว แต่ลูกค้าต้องการให้ย่อยน้ำตาลอีกชนิด ลองอ่านความต้องการอีกครั้ง`);
+  }
+  if(!b.units.length) return toast('ยังไม่มีสินค้าบนสายพาน','bad');
+  if(b.bonds.some(s=>s!=='bonded')) return toast('ยังสร้างพันธะไม่เสร็จ: รวม –OH กับ H– แล้วนำน้ำไปทิ้งในถัง','bad',3200);
+  if(o.type==='mono'){
+    if(b.units.length===1 && b.units[0]===SUBS[o.key].unit) return success();
+    return wrong(describeBuild(b.units,b.branched)+' แต่ลูกค้าต้องการน้ำตาลชนิดอื่น ลองอ่านความต้องการอีกครั้ง');
+  }
+  const opts = G.level===1?['maltose','sucrose','lactose'] : G.level===2?['starch','glycogen','cellulose','inulin'] : ['maltose','sucrose','lactose','starch','glycogen','cellulose','inulin'];
+  openModal(`<h2 style="margin-top:0">🏷️ ติดฉลากสินค้า</h2><p>สินค้าบนสายพานคือสารอะไร?</p>
+    <div class="labels">${opts.map(k=>`<button class="btn ghost" data-lab="${k}">${SUBS[k].name}</button>`).join('')}</div>
+    <p><button class="btn ghost" onclick="closeModal()">ยกเลิก</button></p>`);
+  document.querySelectorAll('[data-lab]').forEach(el=>el.onclick=()=>{ closeModal(); if(G&&!G.ended) judgeBuild(el.dataset.lab); });
+}
+function judgeBuild(label){
+  const o=G.cur, b=G.bench;
+  const ok=matchesBuild(o.key,b.units,b.branched);
+  if(ok && label===o.key) return success();
+  if(ok) return wrong(`โครงสร้างถูกต้องแล้ว แต่ติดฉลากเป็น “${SUBS[label].name}” ซึ่งลูกค้าต้องการ${SUBS[o.key].name}`);
+  let m=describeBuild(b.units,b.branched); const ph=polyHint(o.key,b); if(ph) m+=' · '+ph;
+  wrong(m+' ลองอ่านความต้องการของลูกค้าอีกครั้ง');
+}
+function success(){
+  const o=G.cur;
+  const kind = o.type==='mono'?'mono' : o.type==='hydro'?'hydro' : SUBS[o.key].kind;
+  let pts={mono:50,di:100,hydro:100,poly:200}[kind];
+  G.streak++; const combo=G.streak>=3; if(combo) pts=Math.round(pts*1.5);
+  const fast=G.level===3 && o.pat>o.maxPat/2; if(fast) pts+=30;
+  G.score+=pts; G.stats.correct++;
+  unlockBook(o.key);
+  if(o.type==='hydro') SUBS[o.key].parts.forEach(p=>unlockBook(UNIT2SUB[p]));
+  G.progress += (G.level===3 && kind==='poly') ? 2 : 1;
+  toast(`✅ ${o.h[1]} พอใจมาก! +${pts}${combo?' 🔥คอมโบ ×1.5':''}${fast?' ⚡ส่งเร็ว +30':''}`,'good');
+  if(G.progress>=G.goal) return finishLevel(true);
+  nextOrder(); renderGame();
+}
+function wrong(msg){
+  G.score=Math.max(0,G.score-50); G.streak=0; G.hearts--; G.stats.wrong++;
+  G.msg=msg+' (−50)';
+  toast('❌ ส่งของผิด เสียหัวใจ 1 ดวง','bad');
+  if(G.hearts<=0) return finishLevel(false,'หัวใจหมดแล้ว');
+  renderGame();
+}
+
+/* ===================== ด่าน 4: ห้องตรวจคุณภาพ ===================== */
+const CAT_TH={starch:'แป้ง',reducing:'น้ำตาลรีดิวซ์',sucrose:'ซูโครส',none:'ไม่ใช่กลุ่มใด'};
+const LAB_USES=15, LAB_3STAR=12;
+function startLab(){
+  const red=shuffle(['กลูโคส','ฟรักโทส','มอลโทส','แล็กโทส','น้ำผึ้ง']);
+  const items=shuffle([
+    {cat:'starch',real:pick(['แป้งข้าวเจ้า','แป้งมันสำปะหลัง'])},
+    {cat:'reducing',real:red[0]},{cat:'reducing',real:red[1]},
+    {cat:'sucrose',real:'น้ำตาลทราย (ซูโครส)'},
+    {cat:'none',real:pick(['น้ำเกลือ','เยื่อกระดาษ (เซลลูโลส)'])},
+  ]).map((x,i)=>({...x,id:'ABCDE'[i],acid:false,log:[],guess:'',color:'#EAF2F8'}));
+  G.lab={items,uses:LAB_USES,used:0};
+  renderLab();
+}
+function renderLab(){
+  if(!G||G.ended) return;
+  const L=G.lab, none=L.uses<=0;
+  app.innerHTML=`
+  <div class="hud">
+    <button class="btn ghost" id="home">🏠</button>
+    <span class="pill"><b>${LEVELS[4].title}</b></span>
+    <span class="pill">${'❤️'.repeat(G.hearts)}${'🤍'.repeat(3-G.hearts)}</span>
+    <span class="pill">🏆 ${G.score}</span>
+    <span class="pill">🧪 น้ำยาเหลือ ${L.uses}/${LAB_USES}</span>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <b>🔬 ภารกิจ:</b> สินค้า 5 ชิ้นหลุดฉลาก! ใช้การทดสอบเพื่อจัดกลุ่มสินค้าแต่ละชิ้นว่าเป็น
+    <b>แป้ง / น้ำตาลรีดิวซ์ / ซูโครส / ไม่ใช่กลุ่มใด</b>
+    <div class="legend">ทดสอบแต่ละครั้งใช้น้ำยา 1 ครั้ง · การต้มกับกรดนับเป็น 1 ครั้ง · ใช้ไม่เกิน ${LAB_3STAR} ครั้งเพื่อลุ้น 3 ดาว</div>
+    ${G.msg?`<div class="msg">💬 ${G.msg}</div>`:''}
+  </div>
+  <div class="labgrid">${L.items.map(it=>`
+    <div class="card sample">
+      <div class="row"><h3 style="margin:0">ตัวอย่าง ${it.id}</h3>${it.acid?'<span class="tag">ต้มกับกรดแล้ว</span>':''}</div>
+      <div class="tube"><div style="background:${it.color}"></div></div>
+      <div class="log">${it.log.length?it.log.map(x=>`<div>${x}</div>`).join(''):'<span class="legend">ยังไม่ได้ทดสอบ</span>'}</div>
+      <button class="btn ghost" data-t="iod" data-id="${it.id}" ${none?'disabled':''}>🟤 หยดไอโอดีน</button>
+      <button class="btn ghost" data-t="ben" data-id="${it.id}" ${none?'disabled':''}>🔵 เบเนดิกต์ + ต้ม</button>
+      <button class="btn ghost" data-t="acid" data-id="${it.id}" ${none||it.acid?'disabled':''}>🔥 ต้มกับกรด</button>
+      <select data-g="${it.id}">
+        <option value="">— จัดกลุ่ม —</option>
+        ${Object.keys(CAT_TH).map(c=>`<option value="${c}" ${it.guess===c?'selected':''}>${CAT_TH[c]}</option>`).join('')}
+      </select>
+    </div>`).join('')}
+  </div>
+  <div class="controls"><button class="btn green send" id="sub">📋 ส่งผลตรวจ</button></div>`;
+  $('#home').onclick=()=>{ if(confirm('ออกจากด่านนี้? ความคืบหน้าในด่านจะหายไป')) showHome(); };
+  document.querySelectorAll('[data-t]').forEach(el=>el.onclick=()=>labTest(el.dataset.id,el.dataset.t));
+  document.querySelectorAll('[data-g]').forEach(el=>el.onchange=()=>{ L.items.find(x=>x.id===el.dataset.g).guess=el.value; });
+  $('#sub').onclick=labSubmit;
+}
+function labTest(id,t){
+  const L=G.lab, it=L.items.find(x=>x.id===id);
+  if(L.uses<=0) return toast('น้ำยาหมดแล้ว','bad');
+  if(t==='acid'&&it.acid) return;
+  L.uses--; L.used++;
+  if(t==='iod'){
+    const pos=it.cat==='starch'&&!it.acid;
+    it.log.push(pos?'🟤 ไอโอดีน: <b>สีน้ำเงินเข้ม</b>':'🟤 ไอโอดีน: ยังเป็นสีน้ำตาลของไอโอดีน');
+    it.color=pos?'#1F2A6B':'#C98A3A';
+  } else if(t==='ben'){
+    const pos=it.cat==='reducing'||(it.acid&&(it.cat==='sucrose'||it.cat==='starch'));
+    it.log.push(pos?'🔵 เบเนดิกต์: <b>ตะกอนสีแดงอิฐ</b>':'🔵 เบเนดิกต์: ยังเป็นสีฟ้า');
+    it.color=pos?'#B4441E':'#5AA9E6';
+  } else {
+    it.acid=true; it.log.push('🔥 ต้มกับกรด แล้วทำให้เป็นกลาง'); it.color='#F3EFD9';
+  }
+  renderLab();
+}
+function labSubmit(){
+  const L=G.lab;
+  if(L.items.some(x=>!x.guess)) return toast('จัดกลุ่มให้ครบทั้ง 5 ตัวอย่างก่อนส่ง','bad');
+  const c=L.items.filter(x=>x.guess===x.cat).length, w=5-c;
+  if(w===0){
+    G.stats.correct+=5;
+    const pts=500+50*L.uses; G.score+=pts;
+    L.items.forEach(x=>{ if(x.cat==='starch') unlockBook('starch'); if(x.cat==='sucrose') unlockBook('sucrose'); });
+    toast(`✅ จัดกลุ่มถูกทั้งหมด! +500 และโบนัสน้ำยาเหลือ +${50*L.uses}`,'good');
+    return finishLevel(true);
+  }
+  G.stats.correct+=c; G.stats.wrong+=w;
+  G.hearts--; G.score=Math.max(0,G.score-50*w);
+  G.msg=`จัดกลุ่มถูก ${c} จาก 5 ตัวอย่าง (−${50*w}) ลองทดสอบเพิ่มหรือคิดใหม่อีกครั้ง`;
+  toast('❌ ยังมีตัวอย่างที่จัดกลุ่มผิด เสียหัวใจ 1 ดวง','bad');
+  if(G.hearts<=0) return finishLevel(false,'หัวใจหมดแล้ว');
+  renderLab();
+}
+
+/* ===================== finish ===================== */
+function finishLevel(passed,reason){
+  if(G.ended) return;
+  G.ended=true; stopTimer(); closeModal();
+  const p=player(), l=G.level;
+  let heartBonus=0, st=0;
+  if(passed){
+    heartBonus=100*G.hearts; G.score+=heartBonus;
+    const lost=3-G.hearts;
+    if(l===3) st = lost===0&&G.timeLeft>=60 ? 3 : lost<=1 ? 2 : 1;
+    else if(l===4) st = lost===0&&G.lab.used<=LAB_3STAR ? 3 : lost<=1 ? 2 : 1;
+    else st = lost===0 ? 3 : lost<=1 ? 2 : 1;
+    const prev=p.levels[l]||{stars:0,score:0};
+    p.levels[l]={stars:Math.max(prev.stars||0,st),score:Math.max(prev.score||0,G.score)};
+    saveDB();
+  }
+  const s=G.stats, acc=(s.correct+s.wrong)?Math.round(100*s.correct/(s.correct+s.wrong)):0;
+  const now=new Date();
+  const dateTh=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  const reveal = l===4 ? `<h3>เฉลยสินค้า</h3><table class="reveal"><tr><th>ตัวอย่าง</th><th>สินค้าจริง</th><th>กลุ่ม</th></tr>
+      ${G.lab.items.map(x=>`<tr><td>${x.id}</td><td>${x.real}</td><td>${CAT_TH[x.cat]}</td></tr>`).join('')}</table>` : '';
+  const unlocks = G.newUnlocks.length ? `<p>📖 ปลดล็อกในสมุดสูตร: <b>${G.newUnlocks.map(k=>SUBS[k].name).join(', ')}</b></p>` : '';
+  const statRows = l===4
+    ? `<div>ความแม่นยำ</div><div>${acc}%</div><div>ใช้น้ำยาไป</div><div>${G.lab.used} ครั้ง</div>`
+    : `<div>ความแม่นยำ</div><div>${acc}% (ถูก ${s.correct} / ผิด ${s.wrong})</div>
+       <div>พันธะไกลโคซิดิกที่สร้าง</div><div>${s.bonds} พันธะ</div>
+       <div>น้ำที่เกิดขึ้น</div><div>${s.waterMade} โมเลกุล</div>
+       ${s.waterUsed?`<div>น้ำที่ใช้ย่อย</div><div>${s.waterUsed} โมเลกุล</div>`:''}`;
+  const hasNext = passed && l<4 && isUnlocked(l+1);
+  app.innerHTML=`
+  <div class="card result" style="max-width:640px;margin:20px auto">
+    <h1 style="margin:0;color:${passed?'var(--good)':'var(--bad)'}">${passed?'🎉 ผ่านด่าน!':'😵 ยังไม่ผ่าน'}</h1>
+    <div style="color:var(--muted)">${LEVELS[l].title}${reason?' · '+reason:''}</div>
+    <div class="bigstars">${passed?'⭐'.repeat(st)+'☆'.repeat(3-st):'☆☆☆'}</div>
+    <div style="font-family:Mitr;font-size:30px">🏆 ${G.score} คะแนน</div>
+    ${passed?`<div class="legend">รวมโบนัสหัวใจที่เหลือ +${heartBonus}</div>`:''}
+    <div class="stats">${statRows}</div>
+    ${unlocks}${reveal}
+    <hr style="border:none;border-top:1px dashed var(--line)">
+    <div><b>${esc(p.name)}</b>${p.no?` · เลขที่ ${esc(p.no)}`:''} · ${CLASS_NAME}</div>
+    <div class="legend">วิชา${SUBJECT} · ${dateTh}</div>
+    <div class="row" style="justify-content:center;margin-top:14px">
+      <button class="btn ghost" id="again">🔁 เล่นอีกครั้ง</button>
+      ${hasNext?`<button class="btn" id="next">➡️ ด่านถัดไป</button>`:''}
+      <button class="btn ghost" id="home">🏠 หน้าหลัก</button>
+    </div>
+  </div>`;
+  $('#again').onclick=()=>startLevel(l);
+  if($('#next')) $('#next').onclick=()=>startLevel(l+1);
+  $('#home').onclick=showHome;
+}
+
+showHome();
+</script>
+<script type="module">
+import { auth, db, onAuthStateChanged, doc, getDoc, isTeacherEmail, fullName } from "../js/common.js?v=5";
+onAuthStateChanged(auth, async u => {
+  if (!u) return location.replace("../index.html");
+  if (isTeacherEmail(u.email)) return initPlayer(u.uid, "ครู (โหมดทดลอง)", "");
+  try {
+    const s = await getDoc(doc(db, "students", u.uid));
+    const me = s.exists() ? s.data() : {};
+    const name = fullName(me) + (me.nickname ? ` (${me.nickname})` : "");
+    initPlayer(u.uid, name || "นักเรียน", me.no ?? "");
+  } catch (e) {
+    initPlayer(u.uid, "นักเรียน", "");
+  }
+});
+</script>
+</body>
+</html>
