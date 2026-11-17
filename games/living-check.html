@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ด่านตรวจสิ่งมีชีวิต</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Mitr:wght@400;600&family=Sarabun:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E8F6F3; --card:#FFFFFF; --ink:#1F3B3A; --muted:#6B8583; --line:#CFE5E1;
+  --brand:#14A098; --brand2:#0B7A73; --accent:#FF8A5B; --accent2:#D9622F;
+  --good:#2E9E6A; --bad:#D94848; --warn:#F2B134; --violet:#6C63FF;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Sarabun',system-ui,sans-serif;color:var(--ink);min-height:100vh;background:var(--bg);-webkit-tap-highlight-color:transparent}
+#labbg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.8}
+#labbg svg{width:100%;height:100%}
+#app{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:12px 14px 30px}
+h1,h2,h3,.title{font-family:'Mitr',sans-serif;font-weight:600}
+.title{font-size:34px;margin:6px 0 0;color:var(--brand2);text-shadow:0 2px 0 #fff}
+.subtitle{color:var(--muted);margin:2px 0 12px;text-shadow:0 0 4px #fff,0 0 8px #fff}
+.btn{border:0;border-radius:14px;padding:10px 16px;font:600 16px 'Sarabun',sans-serif;cursor:pointer;background:var(--brand);color:#fff;box-shadow:0 4px 0 var(--brand2);transition:transform .08s;touch-action:manipulation}
+.btn:active{transform:translateY(3px);box-shadow:0 1px 0 var(--brand2)}
+.btn.ghost{background:#fff;color:var(--ink);box-shadow:0 4px 0 var(--line);border:1px solid var(--line)}
+.btn.orange{background:var(--accent);box-shadow:0 4px 0 var(--accent2)}
+.btn.green{background:var(--good);box-shadow:0 4px 0 #1F7550}
+.btn.red{background:var(--bad);box-shadow:0 4px 0 #9E2F2F}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.backlink{display:inline-block;text-decoration:none}
+.card{background:rgba(255,255,255,.94);border-radius:20px;border:1px solid var(--line);padding:16px;box-shadow:0 6px 18px rgba(20,90,85,.10);backdrop-filter:blur(4px)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.spacer{flex:1}
+.pill{background:#fff;border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:15px;white-space:nowrap}
+.pill.hot{background:#FFE7DA;border-color:#FFC7AE}
+.muted{color:var(--muted)}
+.legend{font-size:13px;color:var(--muted)}
+
+/* home */
+.hero{display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:center}
+.levels{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+.lvcard{position:relative;border-radius:20px;padding:14px;background:#fff;border:2px solid var(--line);cursor:pointer;text-align:center;transition:transform .15s}
+.lvcard:hover{transform:translateY(-3px)}
+.lvcard.locked{filter:grayscale(1);opacity:.6;cursor:not-allowed}
+.lvcard .art{height:90px;display:flex;align-items:center;justify-content:center}
+.lvcard .art svg{height:90px;width:auto}
+.lvcard h3{margin:6px 0 2px;font-size:17px}
+.lvcard p{margin:0;font-size:14px;color:var(--muted);min-height:40px}
+.lvcard .st{font-size:22px;letter-spacing:2px;margin-top:4px}
+.lock{position:absolute;top:8px;right:10px;font-size:20px}
+
+/* mascot + bubble */
+svg.bot{width:74px;height:74px;flex:none}
+.result svg.bot{width:96px;height:96px;animation:float 3s ease-in-out infinite}
+.guide{display:flex;gap:10px;align-items:flex-end}
+.guide svg.bot{width:74px;height:74px;flex:none;animation:float 3s ease-in-out infinite}
+.bubble{position:relative;background:#fff;border:2px solid var(--brand);border-radius:16px;padding:8px 12px;font-size:15px;max-width:620px}
+.bubble:before{content:"";position:absolute;left:-10px;bottom:14px;border:8px solid transparent;border-right-color:var(--brand)}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes blink{0%,90%,100%{opacity:1}95%{opacity:.2}}
+.bulb{animation:blink 2.2s infinite}
+
+/* HUD */
+.hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.hearts{font-size:20px;letter-spacing:2px}
+
+/* Level 1 */
+.l1{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:14px;align-items:start}
+.evid{perspective:900px}
+.evcard{border-radius:22px;padding:18px;min-height:230px;background:linear-gradient(160deg,#FFFFFF,#F1FBF9);border:3px solid var(--brand);box-shadow:0 10px 24px rgba(20,90,85,.18);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;animation:flipIn .5s ease}
+.evcard .em{font-size:64px;line-height:1.1;filter:drop-shadow(0 3px 2px rgba(0,0,0,.12))}
+.evcard .tx{font-family:'Mitr';font-size:20px;margin-top:10px}
+.evcard .cnt{font-size:13px;color:var(--muted);margin-top:10px}
+@keyframes flipIn{from{transform:rotateY(90deg);opacity:.2}to{transform:rotateY(0);opacity:1}}
+.bins{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.bin{border-radius:18px;background:#fff;border:2px solid var(--line);padding:10px 8px;text-align:center;cursor:pointer;transition:transform .1s, border-color .2s;touch-action:manipulation}
+.bin:hover{border-color:var(--brand)}
+.bin svg{width:54px;height:54px}
+.bin .nm{font-family:'Mitr';font-size:14.5px;line-height:1.25;margin-top:4px}
+.bin .ct{font-size:12px;color:var(--muted)}
+.bin.ok{animation:pop .45s;border-color:var(--good);background:#E6F7EE}
+.bin.no{animation:shake .45s;border-color:var(--bad);background:#FDECEC}
+@keyframes pop{0%{transform:scale(1)}40%{transform:scale(1.08)}100%{transform:scale(1)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-7px)}40%,80%{transform:translateX(7px)}}
+
+/* Level 2 */
+.l2{display:grid;grid-template-columns:200px 1fr 300px;gap:12px;align-items:start}
+.shelf{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.jar{position:relative;border-radius:16px;background:#fff;border:2px solid var(--line);padding:6px;text-align:center;cursor:pointer;font-size:13px}
+.jar svg{width:100%;height:64px}
+.jar.sel{border-color:var(--brand);box-shadow:0 0 0 3px rgba(20,160,152,.25)}
+.jar.done{opacity:.75}
+.jar .mini{position:absolute;top:2px;right:4px;font-size:16px}
+.bench{text-align:center}
+.bench .spec{height:190px;display:flex;align-items:center;justify-content:center;position:relative}
+.bench .spec svg.big{height:180px;width:auto;filter:drop-shadow(0 8px 6px rgba(0,0,0,.15))}
+.scanline{position:absolute;left:10%;right:10%;height:4px;background:linear-gradient(90deg,transparent,#3EF0E2,transparent);box-shadow:0 0 14px #3EF0E2;animation:scan 1.1s ease-in-out 1;top:0;opacity:0}
+@keyframes scan{0%{top:5%;opacity:1}100%{top:95%;opacity:0}}
+.tools{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:10px 0}
+.tool{border-radius:16px;background:#fff;border:2px solid var(--line);padding:8px 4px;cursor:pointer;font-size:13px;text-align:center;touch-action:manipulation}
+.tool svg{width:44px;height:44px}
+.tool.used{background:#EEF5F4;opacity:.6;cursor:default}
+.viewer{min-height:200px;border-radius:18px;background:#0E2A33;color:#D7FFFB;padding:10px;position:relative;overflow:hidden}
+.viewer .vt{font-family:'Mitr';font-size:14px;color:#7FF5EA;margin-bottom:6px}
+.viewer svg{display:block;margin:0 auto}
+.viewer .res{font-size:14px;margin-top:6px;color:#E8FFFD}
+.frames{display:flex;justify-content:center;gap:16px;align-items:center}
+.frames .fr{background:#163B46;border-radius:12px;padding:6px;text-align:center;font-size:12px}
+.frames .arrow{font-size:26px;color:#7FF5EA}
+.fr2{animation:fadeIn 1.2s ease .5s both}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.chartline{stroke-dasharray:400;stroke-dashoffset:400;animation:draw 1.6s ease forwards}
+@keyframes draw{to{stroke-dashoffset:0}}
+.log{font-size:14px;max-height:170px;overflow:auto}
+.log div{padding:5px 8px;border-radius:10px;background:#F2FAF8;margin:4px 0}
+.verdict{display:flex;gap:8px;margin-top:10px}
+.verdict .btn{flex:1;font-size:17px}
+.stamp{position:absolute;font-family:'Mitr';font-weight:600;font-size:26px;padding:4px 14px;border:5px solid;border-radius:12px;transform:rotate(-14deg);animation:stamp .45s cubic-bezier(.2,1.6,.4,1);background:rgba(255,255,255,.85)}
+.stamp.alive{color:var(--good);border-color:var(--good)}
+.stamp.dead{color:#7A4E9E;border-color:#7A4E9E}
+@keyframes stamp{from{transform:scale(3) rotate(-30deg);opacity:0}to{transform:scale(1) rotate(-14deg);opacity:1}}
+
+/* Level 3 */
+.l3{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+.casefile{border-radius:22px;background:linear-gradient(#FFF3D6,#FDE6B6);border:2px solid #E7C27B;padding:14px;position:relative;text-align:center}
+.casefile .tab{position:absolute;top:-14px;left:18px;background:#FDE6B6;border:2px solid #E7C27B;border-bottom:none;border-radius:10px 10px 0 0;padding:2px 14px;font-family:'Mitr';font-size:14px}
+.casefile svg.big{height:190px;width:auto}
+.clues{display:flex;flex-direction:column;gap:8px}
+.clue{display:flex;gap:10px;align-items:center;background:#fff;border:2px solid var(--line);border-radius:14px;padding:9px 12px;animation:slideIn .45s ease both;font-size:16px}
+.clue .ic{font-size:26px}
+@keyframes slideIn{from{transform:translateX(30px);opacity:0}to{transform:none;opacity:1}}
+.choices{display:grid;gap:8px;margin-top:10px}
+.choice{text-align:left;border-radius:14px;border:2px solid var(--line);background:#fff;padding:10px 14px;font:16px 'Sarabun';cursor:pointer;touch-action:manipulation}
+.choice:hover{border-color:var(--brand)}
+.choice.ok{border-color:var(--good);background:#E6F7EE}
+.choice.no{border-color:var(--bad);background:#FDECEC}
+.timer{font-family:'Mitr';font-size:18px}
+.timer.low{color:var(--bad);animation:pop 1s infinite}
+
+/* Level 4 */
+.l4{display:grid;grid-template-columns:1fr 280px 1fr;gap:12px;align-items:start}
+.side{border-radius:20px;padding:10px;min-height:260px;border:3px dashed}
+.side.yes{border-color:#7CCB9E;background:rgba(230,247,238,.85)}
+.side.nono{border-color:#B9A2D6;background:rgba(241,234,250,.85)}
+.side h3{margin:2px 0 8px;font-size:17px;text-align:center}
+.side .chip{background:#fff;border-radius:12px;padding:7px 10px;margin:6px 0;font-size:14px;border:1px solid var(--line);animation:pop .4s}
+.side .chip label{display:flex;gap:8px;align-items:flex-start;cursor:pointer}
+.side .chip input{width:20px;height:20px;margin-top:1px;flex:none}
+.center{text-align:center}
+.center svg.big{height:170px;animation:spin 18s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* notebook */
+.book{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;max-height:60vh;overflow:auto}
+.entry{border-radius:16px;border:2px solid var(--line);padding:8px;text-align:center;background:#fff;cursor:pointer}
+.entry svg{height:70px;width:auto}
+.entry.locked{background:#F2F6F5;color:var(--muted);cursor:default}
+.entry.locked svg{filter:brightness(0) opacity(.18)}
+.entry .tag{font-size:12px;border-radius:999px;padding:1px 8px;display:inline-block;margin-top:2px}
+.tag.alive{background:#DDF4E7;color:#1F7550}
+.tag.dead{background:#ECE3F6;color:#5D3B80}
+.tag.debate{background:#FFF0D1;color:#8A5A00}
+.ptable{width:100%;border-collapse:collapse;font-size:14.5px;margin:8px 0}
+.ptable td{padding:5px 6px;border-bottom:1px dashed var(--line);vertical-align:top}
+.ptable td.mk{width:34px;text-align:center;font-size:18px}
+.ptable td.ic svg{width:28px;height:28px}
+
+/* modal/toast/result */
+#modal{position:fixed;inset:0;background:rgba(10,40,40,.5);display:none;align-items:center;justify-content:center;z-index:900;padding:14px}
+#modal.show{display:flex}
+#modalBody{max-width:720px;width:100%;max-height:92vh;overflow:auto;animation:pop .3s}
+#toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:950;display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none;width:min(94vw,620px)}
+.t{color:#fff;padding:9px 16px;border-radius:12px;font-size:15px;box-shadow:0 4px 12px rgba(0,0,0,.2);text-align:center;animation:fadeIn .2s}
+.t.good{background:var(--good)} .t.bad{background:var(--bad)} .t.info{background:#2F4B5A}
+.result{text-align:center}
+.bigstars{font-size:54px;letter-spacing:6px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;text-align:left;max-width:440px;margin:12px auto}
+.stats div:nth-child(odd){color:var(--muted)}
+.confetti{position:fixed;top:-20px;width:10px;height:14px;z-index:999;pointer-events:none;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+
+/* responsive (landscape phones) */
+@media (max-width:980px){
+  .l2{grid-template-columns:150px 1fr 240px}
+  .levels{grid-template-columns:repeat(2,1fr)}
+  .verdict .btn{font-size:15px;padding:10px 8px;white-space:nowrap}
+}
+@media (max-height:520px){
+  .title{font-size:26px}
+  .bench .spec{height:130px} .bench .spec svg.big{height:120px}
+  .casefile svg.big{height:120px}
+  .evcard{min-height:170px} .evcard .em{font-size:48px}
+  .viewer{min-height:160px}
+  .guide svg.bot{width:56px;height:56px}
+  .lvcard .art{height:66px} .lvcard .art svg{height:66px}
+}
+@media (max-width:700px){
+  .l1,.l2,.l3,.l4{grid-template-columns:1fr}
+  .shelf{grid-template-columns:repeat(3,1fr)}
+}
+</style>
+</head>
+<body>
+<div id="labbg"></div>
+<div id="app"></div>
+<div id="toast"></div>
+<div id="modal"><div class="card" id="modalBody"></div></div>
+
+<script>
+/* ===================== ตั้งค่า ===================== */
+const SUBJECT = 'ชีวะคือชีวิต';
+const CLASS_NAME = 'ม.3';
+const STORE_KEY = 'livingCheck_v1';
+const L3_SECONDS = 240;
+const L2_BUDGET = 15;
+
+/* ===================== ข้อมูล: สมบัติของสิ่งมีชีวิต ===================== */
+const PROPS = {
+  cell:   {name:'ประกอบด้วยเซลล์และมีการจัดระบบ', short:'เซลล์และการจัดระบบ', desc:'สิ่งมีชีวิตทุกชนิดประกอบด้วยเซลล์ ตั้งแต่ 1 เซลล์ไปจนถึงหลายเซลล์ที่จัดระบบเป็นเนื้อเยื่อ อวัยวะ และระบบอวัยวะ'},
+  energy: {name:'ต้องการสารอาหารและพลังงาน', short:'สารอาหารและพลังงาน', desc:'มีเมแทบอลิซึม คือกระบวนการเคมีในเซลล์ เช่น การสังเคราะห์ด้วยแสง การหายใจระดับเซลล์ เพื่อสร้างและใช้พลังงาน'},
+  growth: {name:'เจริญเติบโตและมีอายุขัย', short:'เจริญเติบโต อายุขัย', desc:'เพิ่มจำนวนเซลล์และขนาด มีการเปลี่ยนแปลงตามวัยจนตัวเต็มวัย และมีอายุขัยจำกัด'},
+  repro:  {name:'สืบพันธุ์ได้', short:'สืบพันธุ์', desc:'สร้างสิ่งมีชีวิตรุ่นใหม่ได้ทั้งแบบอาศัยเพศและไม่อาศัยเพศ ทำให้สปีชีส์ดำรงอยู่ได้'},
+  respond:{name:'ตอบสนองต่อสิ่งเร้า', short:'ตอบสนองสิ่งเร้า', desc:'รับรู้การเปลี่ยนแปลงของสิ่งแวดล้อม เช่น แสง เสียง การสัมผัส สารเคมี แล้วตอบสนอง'},
+  homeo:  {name:'รักษาดุลยภาพของร่างกาย', short:'รักษาดุลยภาพ', desc:'ควบคุมสภาพภายในให้ค่อนข้างคงที่ เช่น อุณหภูมิร่างกาย น้ำ ระดับน้ำตาลในเลือด'},
+  evolve: {name:'ถ่ายทอดลักษณะทางพันธุกรรมและวิวัฒนาการ', short:'พันธุกรรม วิวัฒนาการ', desc:'มีสารพันธุกรรมถ่ายทอดลักษณะสู่รุ่นลูก และประชากรเปลี่ยนแปลงหรือปรับตัวได้เมื่อเวลาผ่านไป'},
+};
+const PORDER = ['cell','energy','growth','repro','respond','homeo','evolve'];
+
+/* หลักฐานด่าน 1 */
+const EVID = [
+  ['🌿','ไมยราบหุบใบทันทีเมื่อถูกสัมผัส','respond'],
+  ['👁️','รูม่านตาหดเล็กลงเมื่อเจอแสงจ้า','respond'],
+  ['🌱','ต้นถั่วงอกโค้งเข้าหาแสงจากหน้าต่าง','respond'],
+  ['🦗','จิ้งหรีดหยุดร้องเมื่อได้ยินเสียงคนเดินมา','respond'],
+  ['💦','เหงื่อออกเมื่ออากาศร้อน ช่วยลดอุณหภูมิร่างกาย','homeo'],
+  ['🐟','ปลาน้ำจืดขับปัสสาวะเจือจางปริมาณมาก เพื่อกำจัดน้ำส่วนเกิน','homeo'],
+  ['🩸','ฮอร์โมนอินซูลินช่วยลดระดับน้ำตาลในเลือดหลังกินข้าว','homeo'],
+  ['🥶','ร่างกายสั่นเมื่อหนาว เพื่อสร้างความร้อนให้อุณหภูมิกายคงที่','homeo'],
+  ['🦠','อะมีบาแบ่งเซลล์จาก 1 เซลล์เป็น 2 เซลล์','repro'],
+  ['🍞','ยีสต์แตกหน่อเกิดเป็นเซลล์ใหม่','repro'],
+  ['🌿','เฟิร์นสร้างสปอร์ใต้ใบ แล้วงอกเป็นต้นใหม่','repro'],
+  ['🐣','ลูกไก่ฟักออกจากไข่ แล้วโตเป็นไก่ตัวเต็มวัย','growth'],
+  ['🐸','ลูกอ๊อดเปลี่ยนแปลงรูปร่างจนกลายเป็นกบ','growth'],
+  ['🌾','ต้นข้าวออกรวง แล้วเหี่ยวตายเมื่อครบอายุ','growth'],
+  ['☀️','ใบไม้สังเคราะห์ด้วยแสงสร้างน้ำตาลกลูโคส','energy'],
+  ['⚡','เซลล์สลายกลูโคสในการหายใจระดับเซลล์ ได้พลังงาน ATP','energy'],
+  ['🐇','กระต่ายกินหญ้าเพื่อนำสารอาหารไปใช้','energy'],
+  ['🫀','เนื้อเยื่อหลายชนิดรวมกันเป็นหัวใจ และทำงานร่วมกันในระบบหมุนเวียนเลือด','cell'],
+  ['🔬','ส่องใบสาหร่ายหางกระรอกเห็นเซลล์เรียงต่อกัน','cell'],
+  ['🧫','แบคทีเรียมีเพียง 1 เซลล์ แต่ดำรงชีวิตได้ครบ','cell'],
+  ['🧬','ลูกมีหมู่เลือดตามที่ได้รับจากพ่อและแม่','evolve'],
+  ['💊','แบคทีเรียดื้อยาเพิ่มจำนวนขึ้น เมื่อใช้ยาปฏิชีวนะพร่ำเพรื่อ','evolve'],
+  ['🦋','ผีเสื้อกลางคืนสีเข้มพบมากขึ้นในเมืองที่มีเขม่าควันจากโรงงาน','evolve'],
+];
+const L1_COUNT = 12;
+
+/* ===================== ข้อมูล: ตัวอย่างด่าน 2 ===================== */
+// marks: y = มี, p = มีบางส่วน/ก้ำกึ่ง, n = ไม่มี  (เรียงตาม PORDER)
+const SPEC = {
+  yeast:{name:'ยีสต์',alive:true,marks:'yyyyyyy',
+    tools:{micro:'เห็นเซลล์รูปไข่จำนวนมาก บางเซลล์มีหน่อเล็กๆ ติดอยู่',inc:'ในน้ำเชื่อมอุ่นๆ 3 วัน จำนวนเซลล์เพิ่มขึ้นมาก และมีฟองแก๊สเกิดขึ้น',gas:'คาร์บอนไดออกไซด์เพิ่มขึ้นเร็ว (ยีสต์สลายน้ำตาลเพื่อสร้างพลังงาน)',stim:'มองด้วยตาเปล่าไม่เห็นการเคลื่อนไหว แต่ยีสต์ปรับการทำงานของเซลล์ตามชนิดน้ำตาลที่ได้รับ'},
+    note:'ยีสต์เป็นเห็ดราเซลล์เดียว มีเซลล์ ใช้น้ำตาลสร้างพลังงาน และสืบพันธุ์โดยการแตกหน่อ จึงเป็นสิ่งมีชีวิต'},
+  para:{name:'พารามีเซียม',alive:true,marks:'yyyyyyy',
+    tools:{micro:'เห็นเซลล์เดียวรูปร่างคล้ายรองเท้าแตะ มีขนเล็กๆ (ซิเลีย) รอบเซลล์โบกไปมา',inc:'จาก 1 เซลล์ แบ่งเป็น 2 และ 4 เซลล์',gas:'ออกซิเจนในน้ำลดลง คาร์บอนไดออกไซด์เพิ่มขึ้นช้าๆ (หายใจระดับเซลล์)',stim:'เมื่อหยดกรดอ่อนลงไป พารามีเซียมว่ายถอยหลังแล้วเปลี่ยนทิศหนี'},
+    note:'พารามีเซียมเป็นสิ่งมีชีวิตเซลล์เดียว ว่ายน้ำด้วยซิเลีย ตอบสนองต่อสารเคมี และสืบพันธุ์โดยการแบ่งเซลล์'},
+  mush:{name:'เห็ดฟาง',alive:true,marks:'yyyyyyy',
+    tools:{micro:'เห็นเส้นใยยาว (ไฮฟา) ที่มีผนังกั้นแบ่งเป็นเซลล์',inc:'ดอกเห็ดตูมบานออก ขนาดใหญ่ขึ้น และปล่อยสปอร์',gas:'คาร์บอนไดออกไซด์เพิ่มขึ้น (เห็ดไม่สังเคราะห์ด้วยแสง แต่ย่อยสารอินทรีย์มาใช้)',stim:'ในเวลาสั้นๆ ไม่เห็นการเปลี่ยนแปลงชัดเจน'},
+    note:'เห็ดเป็นเห็ดราหลายเซลล์ ย่อยสลายสารอินทรีย์เป็นอาหาร เจริญเติบโตและสร้างสปอร์ จึงเป็นสิ่งมีชีวิต'},
+  hydr:{name:'สาหร่ายหางกระรอก',alive:true,marks:'yyyyyyy',
+    tools:{micro:'เห็นเซลล์สี่เหลี่ยมเรียงต่อกัน ภายในมีคลอโรพลาสต์สีเขียวเคลื่อนที่ไหลเวียน',inc:'ยอดยาวขึ้นและแตกกิ่งใหม่',gas:'ในที่สว่างมีฟองออกซิเจน ในที่มืดคาร์บอนไดออกไซด์เพิ่มขึ้น',stim:'ในเวลาสั้นๆ ไม่เห็นการเคลื่อนไหวชัดเจน (พืชตอบสนองช้า)'},
+    note:'สาหร่ายหางกระรอกเป็นพืชน้ำ สังเคราะห์ด้วยแสงและหายใจ เจริญเติบโตได้ เป็นสิ่งมีชีวิตแม้จะตอบสนองช้า'},
+  crys:{name:'ผลึกจุนสี',alive:false,marks:'nnpnnnn',
+    tools:{micro:'เห็นผลึกเหลี่ยมใสสีฟ้า ผิวเรียบ ไม่พบเซลล์',inc:'ในสารละลายจุนสีอิ่มตัว ผลึกใหญ่ขึ้น! (เพราะอนุภาคจากสารละลายมาเกาะที่ผิว)',gas:'ไม่มีการเปลี่ยนแปลงของแก๊ส',stim:'ไม่มีการตอบสนองใดๆ'},
+    note:'ผลึกขยายใหญ่ได้จากอนุภาคมาเกาะที่ผิวด้านนอก ไม่ใช่การเจริญเติบโตแบบสิ่งมีชีวิตซึ่งเกิดจากเซลล์สร้างสารและแบ่งตัว และผลึกไม่มีเซลล์ ไม่มีเมแทบอลิซึม'},
+  pumi:{name:'หินพัมมิซ',alive:false,marks:'nnnnnnn',
+    tools:{micro:'เห็นเนื้อหินมีรูพรุนจำนวนมาก (เกิดจากฟองแก๊สตอนลาวาเย็นตัว) ไม่พบเซลล์',inc:'ไม่มีการเปลี่ยนแปลง',gas:'ไม่มีการเปลี่ยนแปลงของแก๊ส',stim:'ลอยน้ำได้ แต่ไม่มีการตอบสนองใดๆ'},
+    note:'หินพัมมิซมีรูพรุนคล้ายฟองน้ำ แต่รูเหล่านั้นเกิดจากฟองแก๊สตอนลาวาเย็นตัว ไม่ใช่เซลล์ และไม่มีกระบวนการของสิ่งมีชีวิตใดๆ'},
+};
+const L2_ORDER = ['yeast','para','mush','hydr','crys','pumi'];
+const TOOLS = {
+  micro:{name:'กล้องจุลทรรศน์'},
+  inc:{name:'ตู้เพาะเลี้ยง 3 วัน'},
+  gas:{name:'เครื่องวัดแก๊ส'},
+  stim:{name:'ทดสอบสิ่งเร้า'},
+};
+
+/* ===================== ข้อมูล: เคสหลอกด่าน 3 ===================== */
+const CASES = {
+  fire:{name:'ไฟ',alive:false,marks:'npppnnn',
+    clues:[['🫁','ใช้ออกซิเจนและปล่อยคาร์บอนไดออกไซด์'],['📈','ลุกลามใหญ่ขึ้นเมื่อมีเชื้อเพลิง'],['✨','สะเก็ดไฟปลิวไปทำให้เกิดกองไฟใหม่ได้'],['🔬','ส่องกล้องจุลทรรศน์ไม่พบเซลล์']],
+    reasons:[
+      ['ไฟไม่มีเซลล์ การลุกลามเกิดจากปฏิกิริยาการเผาไหม้ และไม่มีการถ่ายทอดลักษณะทางพันธุกรรม',true],
+      ['ไฟไม่ใช้พลังงาน จึงไม่ใช่สิ่งมีชีวิต',false],
+      ['ไฟเคลื่อนที่ไปเองไม่ได้',false],
+      ['ไฟมีอายุสั้นเกินไปจึงไม่นับว่ามีอายุขัย',false]],
+    note:'ไฟดูเหมือนหายใจ (ใช้ O₂ ปล่อย CO₂) ขยายตัว และ "เกิดกองใหม่" ได้ แต่ทั้งหมดเป็นปฏิกิริยาเคมีการเผาไหม้ ไม่มีเซลล์ ไม่มีสารพันธุกรรม และไม่รักษาดุลยภาพ'},
+  robot:{name:'หุ่นยนต์ดูดฝุ่น',alive:false,marks:'npnnpnn',
+    clues:[['🚧','หลบสิ่งกีดขวางเมื่อเซนเซอร์ตรวจพบ'],['🔋','กลับไปที่แท่นชาร์จเองเมื่อแบตเตอรี่ใกล้หมด'],['⚡','ใช้พลังงานไฟฟ้าในการทำงาน'],['🔩','ภายในเป็นแผงวงจรและมอเตอร์']],
+    reasons:[
+      ['การตอบสนองเกิดจากโปรแกรมที่มนุษย์เขียนไว้ ไม่มีเซลล์ ไม่เจริญเติบโต และสร้างหุ่นตัวใหม่เองไม่ได้',true],
+      ['หุ่นยนต์ไม่ตอบสนองต่อสิ่งเร้า',false],
+      ['หุ่นยนต์ไม่ใช้พลังงาน',false],
+      ['หุ่นยนต์เคลื่อนที่ได้ช้าเกินไป',false]],
+    note:'หุ่นยนต์ตอบสนองและใช้พลังงานได้ แต่เป็นการทำงานตามโปรแกรม ไม่มีเซลล์ ไม่มีเมแทบอลิซึม ไม่เจริญเติบโต และไม่สืบพันธุ์'},
+  mule:{name:'ล่อ',alive:true,marks:'yyypyyy',
+    clues:[['🐴','เกิดจากม้าตัวเมียผสมพันธุ์กับลาตัวผู้'],['🌾','กินหญ้าและหายใจ'],['📏','โตจากลูกล่อจนเป็นล่อตัวเต็มวัย'],['🚫','ล่อเกือบทั้งหมดเป็นหมัน มีลูกไม่ได้']],
+    reasons:[
+      ['ล่อมีสมบัติอื่นของสิ่งมีชีวิตครบ การสืบพันธุ์ไม่จำเป็นต้องเกิดในทุกตัว แม้ล่อเป็นหมันก็ยังเป็นสิ่งมีชีวิต',true],
+      ['ล่อเป็นหมัน จึงไม่นับเป็นสิ่งมีชีวิต',false],
+      ['ล่อเป็นสิ่งมีชีวิตเพราะเคลื่อนที่ได้เท่านั้น',false],
+      ['ล่อไม่ได้เกิดจากการสืบพันธุ์',false]],
+    note:'สิ่งมีชีวิตบางตัวสืบพันธุ์ไม่ได้ เช่น ล่อ หรือผึ้งงาน แต่ยังมีเซลล์ เมแทบอลิซึม เจริญเติบโต ตอบสนอง และรักษาดุลยภาพครบ จึงยังเป็นสิ่งมีชีวิต'},
+  seed:{name:'เมล็ดถั่วพักตัว',alive:true,marks:'yyyyyyy',
+    clues:[['🫘','แห้ง แข็ง ไม่เห็นการเปลี่ยนแปลงนานหลายเดือน'],['📉','วัดการหายใจได้น้อยมาก'],['🔬','ส่องกล้องพบเซลล์ที่มีเม็ดแป้ง'],['💧','แช่น้ำแล้วงอกเป็นต้นอ่อนภายใน 2 วัน']],
+    reasons:[
+      ['เมล็ดอยู่ในระยะพักตัว เมแทบอลิซึมต่ำมากแต่ยังเกิดอยู่ และเจริญเติบโตต่อได้เมื่อสภาพเหมาะสม',true],
+      ['เมล็ดไม่มีชีวิตระหว่างพักตัว แล้วค่อยมีชีวิตเมื่อได้น้ำ',false],
+      ['เมล็ดเป็นสิ่งมีชีวิตเพราะมีเม็ดแป้งเท่านั้น',false],
+      ['เมล็ดไม่มีเซลล์จนกว่าจะงอก',false]],
+    note:'เมล็ดพักตัวยังมีชีวิต เซลล์ในเมล็ดยังหายใจในอัตราต่ำมาก เมื่อได้น้ำ อุณหภูมิ และออกซิเจนที่เหมาะสมจึงงอก'},
+  log:{name:'ท่อนไม้แห้ง',alive:false,marks:'pnnnnnn',
+    clues:[['🔬','ส่องกล้องเห็นช่องเซลล์เรียงเป็นระเบียบ'],['🫁','ไม่มีการหายใจ ไม่ใช้สารอาหาร'],['🌱','ปักลงดินและรดน้ำทุกวัน ไม่แตกยอดหรือราก'],['📅','ทิ้งไว้หลายเดือนก็ไม่โตขึ้น']],
+    reasons:[
+      ['สิ่งที่เห็นเป็นเพียงผนังเซลล์ของเซลล์ที่ตายแล้ว ไม่มีเมแทบอลิซึม การมีโครงสร้างเซลล์อย่างเดียวไม่พอ',true],
+      ['ท่อนไม้มีเซลล์ จึงยังเป็นสิ่งมีชีวิต',false],
+      ['ท่อนไม้ไม่เคยเป็นส่วนหนึ่งของสิ่งมีชีวิต',false],
+      ['ท่อนไม้ไม่มีชีวิตเพราะมีสีน้ำตาล',false]],
+    note:'ท่อนไม้แห้งเคยเป็นส่วนของสิ่งมีชีวิต แต่เซลล์ตายแล้ว เหลือเพียงผนังเซลล์ ไม่มีกระบวนการของสิ่งมีชีวิตเหลืออยู่'},
+  tard:{name:'หมีน้ำ (ทาร์ดิเกรด) ที่แห้ง',alive:true,marks:'yyyyyyy',
+    clues:[['🟤','ตัวหดเป็นก้อนกลมแห้ง ไม่ขยับ'],['📉','วัดการหายใจแทบไม่ได้เลย'],['🔬','ส่องกล้องพบเซลล์จำนวนมากเรียงเป็นเนื้อเยื่อ'],['💧','หยดน้ำแล้ว 30 นาที กลับมาคลาน กินอาหาร และวางไข่ได้']],
+    reasons:[
+      ['หมีน้ำเข้าสู่สภาวะพักตัวทนแล้ง เมแทบอลิซึมลดลงเกือบหยุดชั่วคราว และกลับมาดำเนินชีวิตได้เมื่อมีน้ำ',true],
+      ['หมีน้ำตายไปแล้ว แล้วฟื้นขึ้นมาใหม่',false],
+      ['หมีน้ำไม่มีเซลล์ขณะแห้ง',false],
+      ['หมีน้ำเป็นสิ่งมีชีวิตเพราะตัวเล็ก',false]],
+    note:'หมีน้ำทนความแห้งได้โดยเข้าสู่สภาวะที่เรียกว่า "ทุน" (tun) เมแทบอลิซึมลดลงจนแทบวัดไม่ได้ แต่ยังไม่ตาย เมื่อได้น้ำจึงกลับมาทำงานตามปกติ'},
+};
+const L3_ORDER = ['fire','robot','mule','seed','log','tard'];
+
+/* ===================== ข้อมูล: คดีไวรัส ===================== */
+const VIRUS_EV = [
+  ['มีสารพันธุกรรม (DNA หรือ RNA) เป็นของตัวเอง','yes'],
+  ['เพิ่มจำนวนได้เมื่ออยู่ในเซลล์เจ้าบ้าน','yes'],
+  ['กลายพันธุ์และเกิดสายพันธุ์ใหม่ได้ เช่น ไวรัสไข้หวัดใหญ่','yes'],
+  ['ถ่ายทอดลักษณะสู่อนุภาคไวรัสรุ่นต่อไป','yes'],
+  ['ไม่มีเซลล์ มีเพียงสารพันธุกรรมห่อด้วยเปลือกโปรตีน','no'],
+  ['ไม่มีเมแทบอลิซึมของตัวเอง ต้องใช้ระบบของเซลล์เจ้าบ้าน','no'],
+  ['ไวรัสบางชนิดทำให้ตกผลึกได้ เหมือนสารเคมี','no'],
+  ['ไม่เจริญเติบโต อนุภาคใหม่ถูกประกอบขึ้นมาครั้งเดียวเต็มขนาด','no'],
+];
+const VIRUS = {name:'ไวรัส',marks:'nnnpnny',note:'ไวรัสมีสมบัติบางข้อของสิ่งมีชีวิต (สารพันธุกรรม การเพิ่มจำนวนในเซลล์เจ้าบ้าน การวิวัฒนาการ) แต่ขาดบางข้อ (ไม่มีเซลล์ ไม่มีเมแทบอลิซึมของตัวเอง) นักวิทยาศาสตร์จึงยังถกเถียงกันอยู่ สิ่งสำคัญคือการให้เหตุผลด้วยหลักฐาน'};
+
+const LEVELS = {
+  1:{title:'ด่าน 1 · จับคู่หลักฐาน',desc:'จัดการ์ดหลักฐาน 12 ใบให้ตรงกับสมบัติของสิ่งมีชีวิต'},
+  2:{title:'ด่าน 2 · ตรวจตัวอย่าง',desc:'ใช้เครื่องมือตรวจตัวอย่าง 6 ชิ้น แล้วตัดสินว่ามีชีวิตหรือไม่'},
+  3:{title:'ด่าน 3 · เคสหลอก',desc:'6 เคสชวนสับสน ตัดสินพร้อมเหตุผลภายใน 4 นาที'},
+  4:{title:'ด่านโบนัส · คดีไวรัส',desc:'คัดแยกหลักฐาน แล้วสรุปจุดยืนของตัวเองด้วยเหตุผล (ปลดล็อกเมื่อได้ 6 ดาว)'},
+};
+
+/* ===================== กราฟิก (SVG) ===================== */
+function bot(mood='happy'){
+  const eyes = mood==='happy'
+    ? '<path d="M27 42q5-6 10 0M47 42q5-6 10 0" stroke="#7FF5EA" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+    : mood==='sad'
+    ? '<circle cx="32" cy="42" r="4" fill="#FFB3B3"/><circle cx="52" cy="42" r="4" fill="#FFB3B3"/>'
+    : '<circle cx="32" cy="42" r="4.5" fill="#7FF5EA"/><circle cx="52" cy="42" r="4.5" fill="#7FF5EA"/>';
+  const mouth = mood==='happy' ? '<path d="M33 52q9 8 18 0" stroke="#7FF5EA" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    : mood==='sad' ? '<path d="M34 56q8-7 16 0" stroke="#FFB3B3" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    : '<path d="M35 54h14" stroke="#7FF5EA" stroke-width="3" stroke-linecap="round"/>';
+  return `<svg class="bot" viewBox="0 0 84 84"><line x1="42" y1="16" x2="42" y2="6" stroke="#0B7A73" stroke-width="3"/><circle class="bulb" cx="42" cy="6" r="5" fill="${mood==='sad'?'#FF8A8A':'#FFD166'}"/>
+  <rect x="12" y="16" width="60" height="52" rx="18" fill="#14A098"/><rect x="18" y="24" width="48" height="38" rx="12" fill="#0E2A33"/>
+  ${eyes}${mouth}<circle cx="10" cy="42" r="5" fill="#0B7A73"/><circle cx="74" cy="42" r="5" fill="#0B7A73"/>
+  <rect x="28" y="68" width="28" height="10" rx="5" fill="#0B7A73"/></svg>`;
+}
+function guide(text,mood){ return `<div class="guide">${bot(mood)}<div class="bubble"><b>แล็บบี้:</b> ${text}</div></div>`; }
+
+const PICON = {
+  cell:'<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="#D8F3EC" stroke="#14A098" stroke-width="3"/><circle cx="34" cy="27" r="8" fill="#6C63FF"/><circle cx="20" cy="38" r="3" fill="#2E9E6A"/><circle cx="40" cy="41" r="2.5" fill="#2E9E6A"/><ellipse cx="22" cy="24" rx="4" ry="2.5" fill="#FF8A5B"/></svg>',
+  energy:'<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="25" fill="#FFF3D1"/><path d="M33 8 16 34h12l-3 18 19-28H31z" fill="#F2B134" stroke="#C98A0F" stroke-width="2" stroke-linejoin="round"/></svg>',
+  growth:'<svg viewBox="0 0 60 60"><rect x="8" y="46" width="44" height="8" rx="4" fill="#B98552"/><path d="M30 46V22" stroke="#2E9E6A" stroke-width="4"/><path d="M30 32c-12 0-16-8-16-12 8 0 16 4 16 12zM30 24c10 0 15-7 15-12-8 0-15 4-15 12z" fill="#5CC488"/><path d="M50 40V12m-5 5 5-6 5 6" stroke="#FF8A5B" stroke-width="3" fill="none" stroke-linecap="round"/></svg>',
+  repro:'<svg viewBox="0 0 60 60"><circle cx="20" cy="30" r="14" fill="#FFE1EC" stroke="#E76F98" stroke-width="3"/><circle cx="40" cy="30" r="14" fill="#FFE1EC" stroke="#E76F98" stroke-width="3"/><circle cx="20" cy="30" r="4" fill="#C2457A"/><circle cx="40" cy="30" r="4" fill="#C2457A"/></svg>',
+  respond:'<svg viewBox="0 0 60 60"><path d="M6 30q24-22 48 0-24 22-48 0z" fill="#E3EEFF" stroke="#4A7BD8" stroke-width="3"/><circle cx="30" cy="30" r="9" fill="#4A7BD8"/><circle cx="30" cy="30" r="4" fill="#0E2A33"/><path d="M10 10l6 6M50 10l-6 6M30 4v7" stroke="#F2B134" stroke-width="3" stroke-linecap="round"/></svg>',
+  homeo:'<svg viewBox="0 0 60 60"><rect x="25" y="6" width="10" height="34" rx="5" fill="#fff" stroke="#D94848" stroke-width="3"/><circle cx="30" cy="46" r="9" fill="#D94848"/><rect x="28" y="20" width="4" height="22" fill="#D94848"/><path d="M8 52h44" stroke="#14A098" stroke-width="3"/><path d="M8 30h10M42 30h10" stroke="#14A098" stroke-width="3" stroke-linecap="round"/></svg>',
+  evolve:'<svg viewBox="0 0 60 60"><path d="M20 6c20 12 0 36 20 48M40 6c-20 12 0 36-20 48" stroke="#6C63FF" stroke-width="3.5" fill="none"/><path d="M22 14h16M20 24h20M20 36h20M22 46h16" stroke="#FF8A5B" stroke-width="3" stroke-linecap="round"/></svg>',
+};
+const TICON = {
+  micro:'<svg viewBox="0 0 60 60"><rect x="12" y="50" width="36" height="6" rx="3" fill="#2F4B5A"/><path d="M40 50c0-14-6-22-16-24" stroke="#2F4B5A" stroke-width="5" fill="none"/><rect x="20" y="6" width="9" height="24" rx="3" transform="rotate(-20 24 18)" fill="#14A098"/><rect x="14" y="36" width="22" height="4" rx="2" fill="#6B8583"/><circle cx="26" cy="32" r="3" fill="#FFD166"/></svg>',
+  inc:'<svg viewBox="0 0 60 60"><rect x="8" y="8" width="44" height="44" rx="8" fill="#FF8A5B"/><rect x="14" y="14" width="32" height="28" rx="4" fill="#FFF3EB"/><ellipse cx="30" cy="34" rx="11" ry="4" fill="#BDE8E1"/><circle cx="27" cy="32" r="2" fill="#2E9E6A"/><circle cx="33" cy="33" r="2" fill="#2E9E6A"/><circle cx="44" cy="47" r="2.5" fill="#fff"/></svg>',
+  gas:'<svg viewBox="0 0 60 60"><rect x="8" y="10" width="44" height="40" rx="8" fill="#2F4B5A"/><rect x="13" y="15" width="34" height="24" rx="4" fill="#0E2A33"/><path d="M16 34l8-6 6 3 8-10 6 2" stroke="#3EF0E2" stroke-width="2.5" fill="none"/><circle cx="20" cy="44" r="2.5" fill="#FFD166"/><circle cx="28" cy="44" r="2.5" fill="#FF8A5B"/></svg>',
+  stim:'<svg viewBox="0 0 60 60"><path d="M30 6l6 16h16l-13 10 5 17-14-10-14 10 5-17L8 22h16z" fill="#FFD166" stroke="#C98A0F" stroke-width="2" stroke-linejoin="round"/></svg>',
+};
+
+/* ภาพตัวอย่าง */
+function art(id){
+  const S = (body,vb='0 0 120 120') => `<svg class="big" viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+  switch(id){
+    case 'yeast': return S(`<ellipse cx="60" cy="84" rx="52" ry="20" fill="#CFE9F0" stroke="#8CC4D4" stroke-width="3"/><ellipse cx="60" cy="78" rx="46" ry="16" fill="#F7EBC8"/>
+      ${[[40,74],[54,80],[70,74],[82,80],[60,70],[46,84],[74,85]].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="7" ry="5" fill="#E9C46A" stroke="#B88A2E" stroke-width="1.5"/>${i%2?`<ellipse cx="${x+7}" cy="${y-3}" rx="3.2" ry="2.5" fill="#E9C46A" stroke="#B88A2E" stroke-width="1.2"/>`:''}`).join('')}
+      <path d="M20 62q40-18 80 0" stroke="#fff" stroke-width="3" fill="none" opacity=".7"/>`,'0 40 120 80');
+    case 'para': return S(`<circle cx="60" cy="62" r="50" fill="#DFF5FF" stroke="#8CC4D4" stroke-width="3"/>
+      <path d="M30 70c-6-22 14-40 40-38 22 2 30 18 22 34-6 14-22 22-38 20-14-2-20-6-24-16z" fill="#BFE8D8" stroke="#2E9E6A" stroke-width="2.5"/>
+      ${Array.from({length:26},(_,i)=>{const a=i/26*Math.PI*2;const x=61+Math.cos(a)*33,y=60+Math.sin(a)*24;return `<line x1="${x}" y1="${y}" x2="${61+Math.cos(a)*38}" y2="${60+Math.sin(a)*28}" stroke="#2E9E6A" stroke-width="1.4"/>`}).join('')}
+      <ellipse cx="66" cy="56" rx="10" ry="7" fill="#6C63FF" opacity=".75"/><path d="M48 70q8 6 16 2" stroke="#1F7550" stroke-width="3" fill="none"/><circle cx="44" cy="54" r="4" fill="#fff" stroke="#2E9E6A"/><circle cx="82" cy="64" r="4" fill="#fff" stroke="#2E9E6A"/>`);
+    case 'mush': return S(`<ellipse cx="60" cy="104" rx="40" ry="8" fill="#C9A77A"/><path d="M50 104c0-20 2-40 4-52h12c2 12 4 32 4 52z" fill="#F4EDE2" stroke="#C3AE93" stroke-width="2"/>
+      <path d="M44 106c2-8 10-12 16-12s14 4 16 12z" fill="#E8DCC6"/><path d="M18 56c0-24 20-40 42-40s42 16 42 40c-14 6-70 6-84 0z" fill="#7C6A5C" stroke="#5B4B3F" stroke-width="2"/>
+      <path d="M30 40q8-10 18-12M70 26q12 2 20 12" stroke="#A69283" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M22 58h76" stroke="#5B4B3F" stroke-width="2"/>`);
+    case 'hydr': return S(`<path d="M28 20h64v84a10 10 0 0 1-10 10H38a10 10 0 0 1-10-10z" fill="#DFF5FF" stroke="#8CC4D4" stroke-width="3"/><rect x="28" y="38" width="64" height="76" rx="8" fill="#AEE2F2" opacity=".6"/>
+      <path d="M60 110V34" stroke="#2E7D4F" stroke-width="3"/>${[46,58,70,82,94].map(y=>[-1,1].map(s=>`<path d="M60 ${y}q${s*12}-6 ${s*16}-2" stroke="#3FAE6A" stroke-width="4" fill="none" stroke-linecap="round"/>`).join('')+`<path d="M60 ${y}l${-10} 4M60 ${y}l10 4" stroke="#5CC488" stroke-width="3" stroke-linecap="round"/>`).join('')}
+      <circle cx="74" cy="50" r="2.5" fill="#fff"/><circle cx="78" cy="42" r="2" fill="#fff"/><circle cx="46" cy="64" r="2" fill="#fff"/>`);
+    case 'crys': return S(`<defs><linearGradient id="cg" x1="0" x2="1"><stop offset="0" stop-color="#7FD0FF"/><stop offset="1" stop-color="#1E7FD0"/></linearGradient></defs>
+      <polygon points="60,14 92,40 84,96 36,96 28,40" fill="url(#cg)" stroke="#0E5A99" stroke-width="2.5"/><polygon points="60,14 72,44 60,96 48,44" fill="#BCE6FF" opacity=".55"/><polygon points="28,40 48,44 36,96" fill="#5DB4F0" opacity=".6"/>
+      <polygon points="88,70 110,82 104,104 84,102" fill="url(#cg)" stroke="#0E5A99" stroke-width="2"/><path d="M50 26l4-4M76 30l3 3" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="60" cy="104" rx="46" ry="6" fill="#0E5A99" opacity=".15"/>`);
+    case 'pumi': return S(`<path d="M18 70c-4-22 14-42 40-44 26-2 46 12 46 34 0 22-20 36-46 36-22 0-36-10-40-26z" fill="#BDB7AE" stroke="#8C857B" stroke-width="2.5"/>
+      ${[[38,56,5],[54,46,4],[70,58,6],[86,50,3.5],[48,74,4.5],[66,80,3.5],[84,72,5],[30,72,3],[58,62,2.5],[76,40,3]].map(([x,y,r])=>`<circle cx="${x}" cy="${y}" r="${r}" fill="#857E74"/>`).join('')}
+      <path d="M26 54q10-14 26-18" stroke="#DAD5CD" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="60" cy="100" rx="40" ry="5" fill="#000" opacity=".1"/>`);
+    case 'fire': return S(`<defs><linearGradient id="fg" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FF5A1F"/><stop offset=".6" stop-color="#FFB020"/><stop offset="1" stop-color="#FFE57A"/></linearGradient></defs>
+      <g><animateTransform attributeName="transform" type="scale" values="1 1;1.03 .96;1 1" dur=".8s" repeatCount="indefinite" additive="sum"/>
+      <path d="M60 14c8 18 30 28 30 52 0 18-14 30-30 30S30 84 30 66c0-14 8-20 12-30 2 10 8 14 10 14-2-14 2-26 8-36z" fill="url(#fg)"/>
+      <path d="M60 50c6 10 14 14 14 26 0 9-6 16-14 16s-14-7-14-16c0-8 8-14 14-26z" fill="#FFF0A8"/></g>
+      <rect x="22" y="94" width="76" height="10" rx="5" fill="#7A4B2A" transform="rotate(-10 60 99)"/><rect x="22" y="94" width="76" height="10" rx="5" fill="#8E5A33" transform="rotate(10 60 99)"/>`);
+    case 'robot': return S(`<ellipse cx="60" cy="88" rx="50" ry="14" fill="#000" opacity=".12"/><ellipse cx="60" cy="74" rx="50" ry="22" fill="#3C4A57"/><ellipse cx="60" cy="68" rx="50" ry="22" fill="#5B6C7B"/>
+      <ellipse cx="60" cy="66" rx="40" ry="16" fill="#D8E1E8"/><circle cx="60" cy="64" r="8" fill="#14A098"/><circle cx="60" cy="64" r="3.5" fill="#7FF5EA"/>
+      <path d="M18 60q42-14 84 0" stroke="#AFC0CD" stroke-width="2" fill="none"/><rect x="54" y="46" width="12" height="5" rx="2.5" fill="#FF8A5B"/>`);
+    case 'mule': return S(`<ellipse cx="62" cy="108" rx="44" ry="5" fill="#000" opacity=".12"/>
+      <rect x="34" y="76" width="8" height="30" rx="3" fill="#7A5638"/><rect x="48" y="78" width="8" height="28" rx="3" fill="#6A4A30"/><rect x="74" y="78" width="8" height="28" rx="3" fill="#6A4A30"/><rect x="86" y="76" width="8" height="30" rx="3" fill="#7A5638"/>
+      <ellipse cx="64" cy="70" rx="36" ry="18" fill="#8C6544"/><path d="M96 66q12 4 8 22" stroke="#5B3E28" stroke-width="4" fill="none" stroke-linecap="round"/>
+      <path d="M36 62c-6-10-8-20-6-28l14 2c0 8 0 16 4 22z" fill="#8C6544"/><path d="M18 38c0-8 6-12 14-12 8 0 12 6 12 12l-2 12c-2 6-20 6-24-2z" fill="#9C7552"/>
+      <ellipse cx="22" cy="46" rx="7" ry="5" fill="#C9A98C"/><path d="M28 28l-4-22 8 4 4 18zM38 28l2-22 6 6-2 18z" fill="#8C6544" stroke="#5B3E28" stroke-width="1.5"/>
+      <circle cx="32" cy="36" r="2.5" fill="#1F1A16"/><path d="M38 34q8 6 6 22" stroke="#4A3324" stroke-width="5" fill="none" stroke-linecap="round"/>`);
+    case 'seed': return S(`<ellipse cx="60" cy="96" rx="48" ry="8" fill="#000" opacity=".1"/>
+      ${[[38,74,-20,'#9BBF5A'],[64,82,15,'#8CB04C'],[86,70,-5,'#A9C96A'],[52,58,30,'#8CB04C']].map(([x,y,r,c])=>`<g transform="rotate(${r} ${x} ${y})"><ellipse cx="${x}" cy="${y}" rx="17" ry="12" fill="${c}" stroke="#5F7F2C" stroke-width="2"/><path d="M${x-4} ${y-2}q4 4 8 0" stroke="#F2F2D0" stroke-width="2.5" fill="none" stroke-linecap="round"/><ellipse cx="${x-6}" cy="${y-5}" rx="5" ry="2.5" fill="#fff" opacity=".4"/></g>`).join('')}
+      <text x="60" y="26" font-size="16" text-anchor="middle">💤</text>`);
+    case 'log': return S(`<ellipse cx="60" cy="98" rx="50" ry="7" fill="#000" opacity=".1"/><rect x="22" y="44" width="72" height="46" rx="6" fill="#8E5A33"/>
+      <path d="M26 54h60M28 66h56M26 78h62" stroke="#6E4325" stroke-width="2.5" stroke-linecap="round"/><ellipse cx="94" cy="67" rx="14" ry="23" fill="#D9A877" stroke="#8E5A33" stroke-width="3"/>
+      <ellipse cx="94" cy="67" rx="9" ry="15" fill="none" stroke="#B98552" stroke-width="2"/><ellipse cx="94" cy="67" rx="4" ry="7" fill="none" stroke="#B98552" stroke-width="2"/><path d="M48 44l-6-10 10 6" fill="#6E4325"/>`);
+    case 'tard': return S(`<ellipse cx="60" cy="98" rx="44" ry="6" fill="#000" opacity=".1"/>
+      ${[30,48,66,84].map(x=>`<path d="M${x} 82q-2 12 4 14" stroke="#C9A58A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M${x+2} 95l-3 3M${x+5} 96l0 4" stroke="#5B3E28" stroke-width="1.6"/>`).join('')}
+      <path d="M18 70c0-20 18-34 44-34s42 14 42 32c0 14-12 20-42 20S18 84 18 70z" fill="#E7C7AC" stroke="#B88E70" stroke-width="2.5"/>
+      <path d="M40 40q-2 22 2 46M60 36v52M80 40q2 22-2 46" stroke="#D4AE90" stroke-width="2.5" fill="none"/>
+      <circle cx="28" cy="62" r="3.5" fill="#2F2A26"/><circle cx="29" cy="61" r="1.2" fill="#fff"/><ellipse cx="20" cy="72" rx="5" ry="3.5" fill="#D79A8A"/><circle cx="36" cy="70" r="3" fill="#F5A7A7" opacity=".6"/>`);
+    case 'virus': return S(`<defs><radialGradient id="vg"><stop offset="0" stop-color="#FFB3C7"/><stop offset="1" stop-color="#E35D8A"/></radialGradient></defs>
+      ${Array.from({length:12},(_,i)=>{const a=i/12*Math.PI*2;return `<line x1="${60+Math.cos(a)*30}" y1="${60+Math.sin(a)*30}" x2="${60+Math.cos(a)*46}" y2="${60+Math.sin(a)*46}" stroke="#B5386A" stroke-width="4"/><circle cx="${60+Math.cos(a)*48}" cy="${60+Math.sin(a)*48}" r="6" fill="#FFD166" stroke="#C98A0F" stroke-width="2"/>`}).join('')}
+      <polygon points="60,26 90,44 90,76 60,94 30,76 30,44" fill="url(#vg)" stroke="#B5386A" stroke-width="3"/>
+      <path d="M44 60q6-10 12 0t12 0 10 0" stroke="#6C63FF" stroke-width="3.5" fill="none" stroke-linecap="round"/>`);
+  }
+  return '';
+}
+
+/* ภาพในกล้องจุลทรรศน์ */
+function micro(id){
+  const W = inner => `<svg viewBox="0 0 120 120" width="150" height="150"><defs><clipPath id="mc"><circle cx="60" cy="60" r="56"/></clipPath></defs>
+    <circle cx="60" cy="60" r="58" fill="#F6FFFD" stroke="#3EF0E2" stroke-width="3"/><g clip-path="url(#mc)">${inner}</g>
+    <circle cx="60" cy="60" r="56" fill="none" stroke="#000" stroke-opacity=".25" stroke-width="10"/></svg>`;
+  switch(id){
+    case 'yeast': return W([[30,40],[58,30],[84,46],[40,74],[70,72],[92,82],[22,88],[56,98]].map(([x,y],i)=>`<ellipse cx="${x}" cy="${y}" rx="12" ry="9" fill="#F3DE9E" stroke="#B88A2E" stroke-width="2"/><circle cx="${x}" cy="${y}" r="3" fill="#C9A24A"/>${i%3===0?`<ellipse cx="${x+12}" cy="${y-6}" rx="5" ry="4" fill="#F3DE9E" stroke="#B88A2E" stroke-width="1.6"/>`:''}`).join(''));
+    case 'para': return W(`<path d="M24 70c-6-28 16-46 44-44 24 2 34 20 26 38-8 16-26 26-44 24-16-2-22-8-26-18z" fill="#CFF0E2" stroke="#2E9E6A" stroke-width="2.5"/>
+      ${Array.from({length:40},(_,i)=>{const a=i/40*Math.PI*2;return `<line x1="${60+Math.cos(a)*36}" y1="${58+Math.sin(a)*28}" x2="${60+Math.cos(a)*42}" y2="${58+Math.sin(a)*33}" stroke="#2E9E6A" stroke-width="1.3"/>`}).join('')}
+      <ellipse cx="66" cy="54" rx="12" ry="8" fill="#8E86FF"/><circle cx="72" cy="60" r="3" fill="#5B52D6"/><path d="M42 72q10 8 20 2" stroke="#1F7550" stroke-width="3" fill="none"/><circle cx="36" cy="54" r="5" fill="#fff" stroke="#2E9E6A"/><circle cx="88" cy="66" r="5" fill="#fff" stroke="#2E9E6A"/>`);
+    case 'mush': return W([20,48,76,104].map((y,i)=>`<path d="M-4 ${y}q60 ${i%2?14:-14} 128 0" stroke="#D9C8B4" stroke-width="13" fill="none"/><path d="M-4 ${y}q60 ${i%2?14:-14} 128 0" stroke="#F6EEE4" stroke-width="9" fill="none"/>${[20,46,72,98].map(x=>`<line x1="${x+i*5}" y1="${y-7}" x2="${x+i*5}" y2="${y+7}" stroke="#A88E70" stroke-width="2"/>`).join('')}`).join(''));
+    case 'hydr': return W(Array.from({length:6},(_,r)=>Array.from({length:4},(_,c)=>{const x=6+c*28+(r%2)*10,y=4+r*20;return `<rect x="${x}" y="${y}" width="26" height="18" rx="3" fill="#E9FBE9" stroke="#2E7D4F" stroke-width="2"/>${[0,1,2,3].map(k=>`<circle cx="${x+5+((k*7+r*3+c*5)%17)}" cy="${y+4+((k*5+c*3)%11)}" r="2.6" fill="#3FAE6A"/>`).join('')}`}).join('')).join(''));
+    case 'crys': return W(`<rect width="120" height="120" fill="#EAF6FF"/><polygon points="20,30 70,10 108,48 90,104 30,96 8,60" fill="#9AD4FF" stroke="#1E7FD0" stroke-width="2.5"/><polygon points="70,10 60,60 108,48" fill="#C8E9FF"/><polygon points="8,60 60,60 30,96" fill="#7CC2F5"/><polyline points="20,30 60,60 90,104" stroke="#1E7FD0" stroke-width="1.5" fill="none"/>`);
+    case 'pumi': return W(`<rect width="120" height="120" fill="#CFC9C0"/>${[[20,24,10],[52,18,7],[86,26,12],[30,60,13],[68,54,9],[100,64,8],[18,96,8],[54,92,12],[90,100,10],[76,80,5],[44,40,4]].map(([x,y,r])=>`<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r*0.8}" fill="#8C857B" stroke="#6E675E" stroke-width="1.5"/>`).join('')}`);
+    case 'seed': return W(Array.from({length:5},(_,r)=>Array.from({length:5},(_,c)=>{const x=4+c*24,y=4+r*24;return `<rect x="${x}" y="${y}" width="22" height="22" rx="5" fill="#F8F3DE" stroke="#A3964F" stroke-width="1.8"/><circle cx="${x+7}" cy="${y+8}" r="3.5" fill="#E2E6F0" stroke="#9AA3BE"/><circle cx="${x+15}" cy="${y+14}" r="3" fill="#E2E6F0" stroke="#9AA3BE"/>`}).join('')).join(''));
+    case 'log': return W(Array.from({length:6},(_,r)=>Array.from({length:5},(_,c)=>{const x=2+c*24,y=2+r*20;return `<rect x="${x}" y="${y}" width="22" height="18" rx="2" fill="#F4E3CC" stroke="#8E5A33" stroke-width="3"/>`}).join('')).join(''));
+    case 'tard': return W(Array.from({length:7},(_,r)=>Array.from({length:7},(_,c)=>{const x=-6+c*20+(r%2)*10,y=-4+r*18;return `<ellipse cx="${x+10}" cy="${y+9}" rx="10" ry="8.5" fill="#F7E2D2" stroke="#C49A7E" stroke-width="1.6"/><circle cx="${x+10}" cy="${y+9}" r="2.6" fill="#B07C60"/>`}).join('')).join(''));
+  }
+  return W('');
+}
+/* ตู้เพาะเลี้ยง: ก่อน/หลัง */
+function incFrames(id){
+  const box = (inner,lab,cls='') => `<div class="fr ${cls}"><svg viewBox="0 0 90 70" width="120" height="94"><rect width="90" height="70" rx="8" fill="#E8FBF8"/>${inner}</svg><div>${lab}</div></div>`;
+  const cells = (n,rx=6,ry=4.5,col='#F3DE9E',st='#B88A2E') => Array.from({length:n},(_,i)=>`<ellipse cx="${12+(i*23)%68}" cy="${14+Math.floor(i*23/68)*12}" rx="${rx}" ry="${ry}" fill="${col}" stroke="${st}" stroke-width="1.3"/>`).join('');
+  let a='',b='';
+  switch(id){
+    case 'yeast': a=cells(3); b=cells(16)+'<circle cx="20" cy="60" r="3" fill="#fff" stroke="#8CC4D4"/><circle cx="60" cy="58" r="4" fill="#fff" stroke="#8CC4D4"/><circle cx="74" cy="62" r="2.5" fill="#fff" stroke="#8CC4D4"/>'; break;
+    case 'para': a='<ellipse cx="45" cy="35" rx="14" ry="8" fill="#CFF0E2" stroke="#2E9E6A" stroke-width="1.6"/>'; b=[[22,22],[66,22],[22,50],[66,50]].map(([x,y])=>`<ellipse cx="${x}" cy="${y}" rx="12" ry="7" fill="#CFF0E2" stroke="#2E9E6A" stroke-width="1.6"/>`).join(''); break;
+    case 'mush': a='<rect x="40" y="44" width="10" height="16" fill="#F4EDE2"/><ellipse cx="45" cy="44" rx="10" ry="9" fill="#7C6A5C"/>'; b='<rect x="40" y="36" width="10" height="26" fill="#F4EDE2"/><path d="M18 38c0-16 12-26 27-26s27 10 27 26z" fill="#7C6A5C"/>'+[[20,8],[60,6],[72,14]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r="1.6" fill="#5B4B3F"/>`).join(''); break;
+    case 'hydr': a='<path d="M45 64V40" stroke="#2E7D4F" stroke-width="2.5"/><path d="M45 48l-8 3M45 48l8 3M45 42l-7 2M45 42l7 2" stroke="#3FAE6A" stroke-width="2.5"/>'; b='<path d="M45 64V8M45 34l14-12" stroke="#2E7D4F" stroke-width="2.5"/>'+[52,42,32,22,14].map(y=>`<path d="M45 ${y}l-9 3M45 ${y}l9 3" stroke="#3FAE6A" stroke-width="2.5"/>`).join('')+'<path d="M55 26l-6 1M58 23l3 5" stroke="#3FAE6A" stroke-width="2.5"/>'; break;
+    case 'crys': a='<polygon points="45,30 55,38 51,50 39,50 35,38" fill="#7FD0FF" stroke="#0E5A99"/>'; b='<polygon points="45,8 70,28 62,62 28,62 20,28" fill="#7FD0FF" stroke="#0E5A99" stroke-width="1.5"/>'; break;
+    case 'pumi': a=b='<path d="M20 40c0-14 12-22 26-22s24 8 24 22-12 20-26 20-24-8-24-20z" fill="#BDB7AE"/><circle cx="36" cy="36" r="3" fill="#857E74"/><circle cx="54" cy="44" r="4" fill="#857E74"/>'; break;
+  }
+  return `<div class="frames">${box(a,'วันที่ 0')}<div class="arrow">➜</div>${box(b,'วันที่ 3','fr2')}</div>`;
+}
+const GAS_SLOPE = {yeast:.9,para:.45,mush:.65,hydr:.55,crys:0,pumi:0};
+function gasChart(id){
+  const k=GAS_SLOPE[id]||0, pts=[];
+  for(let i=0;i<=10;i++){ const x=20+i*20, y=110-(k*i*8)-(k?Math.sin(i)*2:0)-((i*7)%3)*0.4; pts.push(`${x},${y.toFixed(1)}`); }
+  return `<svg viewBox="0 0 240 130" width="260" height="140"><rect width="240" height="130" rx="10" fill="#0B222A"/>
+    ${[30,50,70,90,110].map(y=>`<line x1="20" y1="${y}" x2="220" y2="${y}" stroke="#1E4652" stroke-width="1"/>`).join('')}
+    <polyline class="chartline" points="${pts.join(' ')}" stroke="${k?'#3EF0E2':'#8FA9B0'}" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <text x="22" y="20" fill="#7FF5EA" font-size="11" font-family="Sarabun">CO₂ ในภาชนะ</text><text x="186" y="124" fill="#7FF5EA" font-size="11" font-family="Sarabun">เวลา →</text></svg>`;
+}
+const STIM_ICON = {yeast:'🍬',para:'🧪',mush:'💡',hydr:'💡',crys:'👆',pumi:'💧'};
+
+/* ฉากหลังห้องแล็บ */
+document.getElementById('labbg').innerHTML = `<svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid slice">
+  <defs><linearGradient id="wall" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6F7F4"/><stop offset="1" stop-color="#D2EEE9"/></linearGradient>
+  <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9EDBFF"/><stop offset="1" stop-color="#DDF4FF"/></linearGradient>
+  <pattern id="tile" width="60" height="60" patternUnits="userSpaceOnUse"><rect width="60" height="60" fill="none" stroke="#C6E6E0" stroke-width="1.5"/></pattern></defs>
+  <rect width="1200" height="800" fill="url(#wall)"/><rect width="1200" height="800" fill="url(#tile)" opacity=".7"/>
+  <rect x="860" y="70" width="250" height="190" rx="14" fill="url(#sky)" stroke="#fff" stroke-width="10"/><path d="M985 70v190M860 165h250" stroke="#fff" stroke-width="8"/>
+  <circle cx="1060" cy="115" r="22" fill="#FFE57A" opacity=".9"/><path d="M890 230q40-30 80 0t80 0 60-10" stroke="#8BD48F" stroke-width="16" fill="none" opacity=".7"/>
+  <rect x="60" y="150" width="380" height="14" rx="6" fill="#B98552"/><rect x="60" y="300" width="380" height="14" rx="6" fill="#B98552"/>
+  ${[[90,'#FF8A5B'],[150,'#6C63FF'],[210,'#14A098'],[280,'#F2B134'],[350,'#E76F98']].map(([x,c],i)=>`<path d="M${x} ${150-60+i%2*10}h24v20l14 30h-52l14-30z" fill="${c}" opacity=".55" stroke="#fff" stroke-width="2"/>`).join('')}
+  ${[[100,'#5CC488'],[180,'#4A7BD8'],[260,'#FF8A5B'],[340,'#14A098'],[400,'#F2B134']].map(([x,c])=>`<rect x="${x}" y="244" width="22" height="56" rx="9" fill="${c}" opacity=".45" stroke="#fff" stroke-width="2"/>`).join('')}
+  <rect x="0" y="690" width="1200" height="110" fill="#B6DDD6"/><rect x="0" y="680" width="1200" height="16" fill="#8CC7BD"/>
+  <circle cx="160" cy="560" r="160" fill="#14A098" opacity=".05"/><circle cx="1050" cy="560" r="200" fill="#FF8A5B" opacity=".05"/></svg>`;
+
+/* ===================== utils ===================== */
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const shuffle = a => { a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];} return a; };
+const esc = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(text,type='info',ms=2800){
+  const t=document.createElement('div'); t.className='t '+type; t.textContent=text;
+  const box=$('#toast'); box.appendChild(t); while(box.children.length>2) box.firstChild.remove(); setTimeout(()=>t.remove(),ms);
+}
+function openModal(html){ $('#modalBody').innerHTML=html; $('#modal').classList.add('show'); }
+function closeModal(){ $('#modal').classList.remove('show'); }
+$('#modal').addEventListener('click',e=>{ if(e.target.id==='modal') closeModal(); });
+function confetti(n=60){
+  const cols=['#14A098','#FF8A5B','#F2B134','#6C63FF','#E76F98','#5CC488'];
+  for(let i=0;i<n;i++){ const c=document.createElement('div'); c.className='confetti';
+    c.style.left=Math.random()*100+'vw'; c.style.background=cols[i%cols.length]; c.style.animationDuration=(1.6+Math.random()*1.6)+'s'; c.style.animationDelay=Math.random()*.4+'s';
+    document.body.appendChild(c); setTimeout(()=>c.remove(),3800); }
+}
+const hearts = () => '❤️'.repeat(G.hearts)+'🤍'.repeat(3-G.hearts);
+const MK = {y:'✅',p:'🟡',n:'❌'};
+function propTable(marks){
+  return `<table class="ptable">${PORDER.map((k,i)=>`<tr><td class="ic">${PICON[k]}</td><td>${PROPS[k].name}</td><td class="mk">${MK[marks[i]]}</td></tr>`).join('')}</table>
+  <div class="legend">✅ มี · 🟡 ดูเหมือนมี/มีบางส่วน · ❌ ไม่มี</div>`;
+}
+
+/* ===================== storage ===================== */
+function loadDB(){ try{ return JSON.parse(localStorage.getItem(STORE_KEY)) || {players:{},current:null}; }catch(e){ return {players:{},current:null}; } }
+let DB = loadDB();
+window.initPlayer = function(id,name,no,teacher){
+  DB.players[id]=DB.players[id]||{levels:{},book:[]};
+  DB.players[id].name=name; DB.players[id].no=no; DB.players[id].teacher=!!teacher;
+  DB.current=id; saveDB(); showHome();
+};
+function saveDB(){ try{ localStorage.setItem(STORE_KEY, JSON.stringify(DB)); }catch(e){} }
+function player(){ return DB.current ? DB.players[DB.current] : null; }
+function stars(l){ const p=player(); return (p && p.levels[l] && p.levels[l].stars) || 0; }
+function isUnlocked(l){ const pl=player(); if(l===1||(pl&&pl.teacher)) return true; if(l<4) return stars(l-1)>=1; return stars(1)+stars(2)+stars(3)>=6; }
+function unlockBook(key){ const p=player(); if(p && !p.book.includes(key)){ p.book.push(key); if(G) G.newUnlocks.push(key); saveDB(); } }
+
+/* ===================== home ===================== */
+let G=null, TIMER=null;
+function stopTimer(){ if(TIMER){ clearInterval(TIMER); TIMER=null; } }
+function lvArt(l){
+  if(l===1) return `<svg viewBox="0 0 60 60" height="90">${PICON.cell.replace(/<\/?svg[^>]*>/g,'')}</svg>`;
+  if(l===2) return art('yeast'); if(l===3) return art('fire'); return art('virus');
+}
+function backHref(p){ return (p&&p.teacher)||new URLSearchParams(location.search).get('from')==='teacher' ? '../teacher.html' : '../student.html'; }
+function showHome(){
+  stopTimer(); G=null; closeModal();
+  const p=player();
+  if(!p){ app.innerHTML=`<p class="subtitle" style="margin-top:40px">กำลังโหลดข้อมูลนักเรียน…</p>`; return; }
+  const total=[1,2,3,4].reduce((s,l)=>s+((p.levels[l]&&p.levels[l].score)||0),0);
+  const totalStars=[1,2,3,4].reduce((s,l)=>s+stars(l),0);
+  app.innerHTML = `
+    <div class="row"><a class="btn ghost backlink" href="${backHref(p)}">◀ กลับ</a>${p.teacher?'<span class="pill">👩‍🏫 โหมดครู: ปลดล็อกทุกด่าน</span>':''}
+      <div class="spacer"></div><button class="btn orange" id="bookBtn">📁 แฟ้มคดี</button></div>
+    <h1 class="title">🔬 ด่านตรวจสิ่งมีชีวิต</h1>
+    <p class="subtitle">วิชา${SUBJECT} · ${CLASS_NAME} · เรื่องสมบัติของสิ่งมีชีวิต</p>
+    <div class="card hero">
+      ${bot('happy')}
+      <div><div class="bubble" style="max-width:none"><b>แล็บบี้:</b> สวัสดี เจ้าหน้าที่ใหม่! ห้องแล็บของเราได้รับตัวอย่างลึกลับมาเต็มเลย ช่วยตรวจหน่อยว่าอะไรมีชีวิต อะไรไม่มีชีวิต ใช้สมบัติของสิ่งมีชีวิต 7 ข้อเป็นเกณฑ์นะ</div>
+        <div class="row" style="margin-top:10px"><b>${esc(p.name)}</b>${p.no?`<span class="muted">เลขที่ ${esc(p.no)}</span>`:''}<div class="spacer"></div>
+        <span class="pill">⭐ ${totalStars}/12</span><span class="pill">🏆 ${total} คะแนน</span></div></div>
+    </div>
+    <div class="levels">${[1,2,3,4].map(l=>{const u=isUnlocked(l),s=stars(l);return `<div class="lvcard ${u?'':'locked'}" data-l="${l}">
+      ${u?'':'<span class="lock">🔒</span>'}<div class="art">${lvArt(l)}</div><h3>${LEVELS[l].title}</h3><p>${LEVELS[l].desc}</p>
+      <div class="st">${'⭐'.repeat(s)}${'☆'.repeat(3-s)}</div></div>`}).join('')}</div>
+    <p class="legend" style="text-align:center;margin-top:12px">ผ่านด่านด้วยหัวใจอย่างน้อย 1 ดวงเพื่อปลดล็อกด่านถัดไป · ความคืบหน้าบันทึกไว้ในเครื่องนี้</p>`;
+  app.querySelectorAll('.lvcard').forEach(c=>c.onclick=()=>{ const l=+c.dataset.l; if(isUnlocked(l)) startLevel(l); else toast(l===4?'ต้องได้ดาวรวม 6 ดวงจากด่าน 1–3 ก่อนนะ':'ผ่านด่านก่อนหน้าก่อนนะ','info'); });
+  $('#bookBtn').onclick=showBook;
+}
+
+/* ===================== notebook ===================== */
+function entryInfo(k){
+  if(k==='props') return {name:'สมบัติ 7 ข้อ',art:`<svg viewBox="0 0 60 60" class="big">${PICON.evolve.replace(/<\/?svg[^>]*>/g,'')}</svg>`,tag:''};
+  if(k==='virus') return {name:'ไวรัส',art:art('virus'),tag:'<span class="tag debate">ยังถกเถียง</span>'};
+  const d=SPEC[k]||CASES[k]; return {name:d.name,art:art(k),tag:d.alive?'<span class="tag alive">มีชีวิต</span>':'<span class="tag dead">ไม่มีชีวิต</span>'};
+}
+function showBook(){
+  const p=player(); const keys=['props',...L2_ORDER,...L3_ORDER,'virus'];
+  openModal(`<div class="row"><h2 style="margin:0">📁 แฟ้มคดี</h2><div class="spacer"></div><span class="pill">${keys.filter(k=>p.book.includes(k)).length}/${keys.length}</span><button class="btn ghost" id="bx">✕</button></div>
+    <p class="muted" style="margin:4px 0 10px">ปลดล็อกแฟ้มเมื่อตรวจตัวอย่างหรือเคสนั้นแล้ว แตะเพื่อดูสรุป</p>
+    <div class="book">${keys.map(k=>{const e=entryInfo(k),u=p.book.includes(k);return `<div class="entry ${u?'':'locked'}" data-k="${k}">${e.art}<div><b>${u?e.name:'???'}</b></div>${u?e.tag:''}</div>`}).join('')}</div>`);
+  $('#bx').onclick=closeModal;
+  document.querySelectorAll('.entry').forEach(el=>el.onclick=()=>{ const k=el.dataset.k; if(p.book.includes(k)) showEntry(k); });
+}
+function showEntry(k){
+  let body;
+  if(k==='props') body=`<h2 style="margin:0 0 8px">สมบัติของสิ่งมีชีวิต 7 ข้อ</h2><table class="ptable">${PORDER.map(x=>`<tr><td class="ic">${PICON[x]}</td><td><b>${PROPS[x].name}</b><br><span class="muted">${PROPS[x].desc}</span></td></tr>`).join('')}</table>`;
+  else { const d = k==='virus'?VIRUS:(SPEC[k]||CASES[k]); const e=entryInfo(k);
+    body=`<div class="row"><div style="width:120px">${e.art}</div><div><h2 style="margin:0">${d.name}</h2>${e.tag}</div></div>${propTable(d.marks)}<p>${d.note}</p>`; }
+  openModal(body+`<div class="row" style="justify-content:flex-end"><button class="btn ghost" id="bb">◀ กลับแฟ้ม</button></div>`);
+  $('#bb').onclick=showBook;
+}
+
+/* ===================== เริ่มด่าน ===================== */
+function startLevel(l){
+  stopTimer(); closeModal();
+  G={level:l,hearts:3,score:0,stats:{correct:0,wrong:0},newUnlocks:[],ended:false};
+  ({1:startL1,2:startL2,3:startL3,4:startL4})[l]();
+}
+function hud(extra=''){
+  return `<div class="hud"><button class="btn ghost" id="quit">✕ ออก</button><b style="font-family:Mitr;font-size:18px">${LEVELS[G.level].title}</b><div class="spacer"></div>
+    ${extra}<span class="pill hearts" id="hearts">${hearts()}</span><span class="pill">🏆 <span id="score">${G.score}</span></span></div>`;
+}
+function bindQuit(){ $('#quit').onclick=()=>{ if(confirm('ออกจากด่านนี้? คะแนนรอบนี้จะไม่ถูกบันทึก')) showHome(); }; }
+function refreshHud(){ const h=$('#hearts'); if(h) h.textContent=hearts(); const s=$('#score'); if(s) s.textContent=G.score; }
+function loseHeart(){ G.hearts--; G.stats.wrong++; refreshHud(); if(G.hearts<=0){ setTimeout(()=>endLevel(false,'หัวใจหมด'),900); return true; } return false; }
+
+/* ===================== ด่าน 1 ===================== */
+function startL1(){
+  G.deck=shuffle(EVID).slice(0,L1_COUNT); G.i=0; G.combo=0; G.counts={}; G.lock=false;
+  unlockBook('props');
+  app.innerHTML = hud(`<span class="pill" id="combo">🔥 คอมโบ 0</span>`)+`
+    ${guide('อ่านการ์ดหลักฐาน แล้วแตะสมบัติของสิ่งมีชีวิตที่การ์ดนั้นแสดงให้เห็นชัดที่สุด','think')}
+    <div class="l1" style="margin-top:12px"><div class="evid" id="evid"></div>
+    <div class="bins">${PORDER.map(k=>`<div class="bin" data-k="${k}">${PICON[k]}<div class="nm">${PROPS[k].short}</div><div class="ct" id="ct-${k}">0 ใบ</div></div>`).join('')}</div></div>`;
+  bindQuit(); renderCard();
+  app.querySelectorAll('.bin').forEach(b=>b.onclick=()=>answerL1(b));
+}
+function renderCard(){
+  const c=G.deck[G.i];
+  $('#evid').innerHTML=`<div class="evcard"><div class="em">${c[0]}</div><div class="tx">${esc(c[1])}</div><div class="cnt">การ์ดใบที่ ${G.i+1} / ${G.deck.length}</div></div>`;
+}
+function answerL1(b){
+  if(G.lock||G.ended) return;
+  const c=G.deck[G.i], k=b.dataset.k;
+  b.classList.remove('ok','no'); void b.offsetWidth;
+  if(k===c[2]){
+    G.combo++; G.stats.correct++; const pts=50+Math.min(G.combo-1,5)*10; G.score+=pts;
+    G.counts[k]=(G.counts[k]||0)+1; $('#ct-'+k).textContent=G.counts[k]+' ใบ';
+    b.classList.add('ok'); toast(`ถูกต้อง! +${pts}`,'good',1400);
+  } else {
+    G.combo=0; b.classList.add('no');
+    const right=app.querySelector(`.bin[data-k="${c[2]}"]`); right.classList.remove('ok'); void right.offsetWidth; right.classList.add('ok');
+    toast(`ยังไม่ใช่ ข้อนี้คือ "${PROPS[c[2]].name}"`,'bad',2600);
+    if(loseHeart()) return;
+  }
+  $('#combo').textContent='🔥 คอมโบ '+G.combo; refreshHud();
+  G.lock=true; const g=G;
+  setTimeout(()=>{ if(G!==g||g.ended) return; G.lock=false; G.i++; if(G.i>=G.deck.length) endLevel(true); else renderCard(); }, k===c[2]?650:1500);
+}
+
+/* ===================== ด่าน 2 ===================== */
+function startL2(){
+  G.budget=L2_BUDGET; G.sel=null; G.used={}; G.judged={};
+  L2_ORDER.forEach(k=>G.used[k]=[]);
+  app.innerHTML = hud(`<span class="pill" id="budget">🔋 เครื่องมือ ${G.budget}</span>`)+`
+    ${guide('เลือกตัวอย่างจากชั้นวาง ใช้เครื่องมือตรวจ (มีพลังงานจำกัด ใช้อย่างคุ้มค่า!) แล้วประทับตราว่ามีชีวิตหรือไม่มีชีวิต','think')}
+    <div class="l2" style="margin-top:12px">
+      <div class="card" style="padding:10px"><b>ชั้นวางตัวอย่าง</b><div class="shelf" id="shelf"></div></div>
+      <div class="card bench" id="bench"></div>
+      <div class="card"><b>บันทึกผลการตรวจ</b><div class="log" id="log"><div class="muted">ยังไม่มีผล</div></div>
+        <div class="verdict"><button class="btn green" id="vAlive" disabled>🟢 มีชีวิต</button><button class="btn red" id="vDead" disabled>⚪ ไม่มีชีวิต</button></div></div>
+    </div>`;
+  bindQuit(); G.order=shuffle(L2_ORDER); renderShelf(); selectSpec(G.order[0]);
+  $('#vAlive').onclick=()=>judge(true); $('#vDead').onclick=()=>judge(false);
+}
+function renderShelf(){
+  $('#shelf').innerHTML=G.order.map((k,i)=>`<div class="jar ${G.sel===k?'sel':''} ${k in G.judged?'done':''}" data-k="${k}">
+    ${k in G.judged?`<span class="mini">${G.judged[k]===SPEC[k].alive?'✅':'❌'}</span>`:''}${art(k).replace('class="big"','')}<div>${k in G.judged?SPEC[k].name:'ตัวอย่าง '+String.fromCharCode(65+i)}</div></div>`).join('');
+  $('#shelf').querySelectorAll('.jar').forEach(j=>j.onclick=()=>selectSpec(j.dataset.k));
+}
+function selectSpec(k){
+  G.sel=k; renderShelf();
+  const i=G.order.indexOf(k), done=k in G.judged;
+  $('#bench').innerHTML=`<div class="row"><b style="font-family:Mitr;font-size:18px">${done?SPEC[k].name:'ตัวอย่าง '+String.fromCharCode(65+i)}</b><div class="spacer"></div><span class="legend">${done?'ตรวจแล้ว':'ยังไม่ทราบชนิด — ดูจากหลักฐาน'}</span></div>
+    <div class="spec" id="spec">${art(k)}${done?stampHTML(G.judged[k]):''}</div>
+    <div class="tools">${Object.keys(TOOLS).map(t=>`<div class="tool ${G.used[k].includes(t)?'used':''}" data-t="${t}">${TICON[t]}<div>${TOOLS[t].name}</div></div>`).join('')}</div>
+    <div class="viewer" id="viewer"><div class="vt">จอแสดงผล</div><div class="res" style="color:#9CC">แตะเครื่องมือเพื่อตรวจตัวอย่างนี้</div></div>`;
+  $('#bench').querySelectorAll('.tool').forEach(t=>t.onclick=()=>useTool(t.dataset.t));
+  renderLog(); const lock = done||G.ended;
+  $('#vAlive').disabled=lock; $('#vDead').disabled=lock;
+}
+function stampHTML(alive){ return `<div class="stamp ${alive?'alive':'dead'}" style="top:30%;left:28%">${alive?'มีชีวิต':'ไม่มีชีวิต'}</div>`; }
+function renderLog(){
+  const k=G.sel, u=G.used[k];
+  $('#log').innerHTML = u.length ? u.map(t=>`<div><b>${TOOLS[t].name}:</b> ${SPEC[k].tools[t]}</div>`).join('') : '<div class="muted">ยังไม่มีผล ลองใช้เครื่องมือก่อน</div>';
+}
+function useTool(t){
+  const k=G.sel; if(G.ended) return;
+  if(G.used[k].includes(t)){ showView(k,t); return; }
+  if(k in G.judged){ toast('ตัวอย่างนี้ตรวจเสร็จแล้ว','info'); return; }
+  if(G.budget<=0){ toast('พลังงานเครื่องมือหมดแล้ว ต้องตัดสินจากหลักฐานที่มี','bad'); return; }
+  G.budget--; G.used[k].push(t); $('#budget').textContent='🔋 เครื่องมือ '+G.budget;
+  const sp=$('#spec'); const sl=document.createElement('div'); sl.className='scanline'; sp.appendChild(sl); setTimeout(()=>sl.remove(),1200);
+  $('#bench').querySelector(`.tool[data-t="${t}"]`).classList.add('used');
+  showView(k,t); renderLog();
+}
+function showView(k,t){
+  const r=SPEC[k].tools[t]; let vis='';
+  if(t==='micro') vis=micro(k);
+  else if(t==='inc') vis=incFrames(k);
+  else if(t==='gas') vis=gasChart(k);
+  else vis=`<div style="font-size:60px;text-align:center;animation:pop 1s infinite">${STIM_ICON[k]}</div>`;
+  $('#viewer').innerHTML=`<div class="vt">${TOOLS[t].name}</div>${vis}<div class="res">${r}</div>`;
+}
+function judge(alive){
+  const k=G.sel; if(k in G.judged||G.ended) return;
+  if(!G.used[k].length && !confirm('ยังไม่ได้ใช้เครื่องมือตรวจตัวอย่างนี้เลย จะตัดสินเลยหรือไม่?')) return;
+  G.judged[k]=alive; unlockBook(k);
+  const ok = alive===SPEC[k].alive;
+  $('#spec').insertAdjacentHTML('beforeend',stampHTML(alive));
+  $('#vAlive').disabled=true; $('#vDead').disabled=true;
+  if(ok){ G.score+=100; G.stats.correct++; refreshHud(); }
+  const dead = ok?false:loseHeart();
+  renderShelf(); const g=G;
+  setTimeout(()=>{
+    if(dead||G!==g||g.ended) return;
+    openModal(`<div class="row"><div style="width:110px">${art(k)}</div><div>
+      <h2 style="margin:0;color:${ok?'var(--good)':'var(--bad)'}">${ok?'✅ ถูกต้อง +100':'❌ ยังไม่ถูก'}</h2>
+      <div style="font-family:Mitr;font-size:20px">${SPEC[k].name} · ${SPEC[k].alive?'มีชีวิต':'ไม่มีชีวิต'}</div></div></div>
+      ${guide(SPEC[k].note, ok?'happy':'sad')}${propTable(SPEC[k].marks)}
+      <div class="row" style="justify-content:flex-end"><button class="btn" id="mOk">ตกลง</button></div>`);
+    $('#mOk').onclick=()=>{ closeModal(); const next=G.order.find(x=>!(x in G.judged)); if(next) selectSpec(next); else { G.score+=G.budget*15; endLevel(true); } };
+  },700);
+}
+
+/* ===================== ด่าน 3 ===================== */
+function startL3(){
+  G.order=shuffle(L3_ORDER); G.i=0; G.timeLeft=L3_SECONDS; G.phase='verdict';
+  app.innerHTML = hud(`<span class="pill timer" id="timer">⏱ 4:00</span>`)+`<div id="l3"></div>`;
+  bindQuit(); renderCase();
+  TIMER=setInterval(()=>{ G.timeLeft--; const t=$('#timer'); if(t){ t.textContent=`⏱ ${Math.floor(G.timeLeft/60)}:${String(G.timeLeft%60).padStart(2,'0')}`; t.classList.toggle('low',G.timeLeft<=30); }
+    if(G.timeLeft<=0){ stopTimer(); endLevel(false,'หมดเวลา'); } },1000);
+}
+function renderCase(){
+  const k=G.order[G.i], c=CASES[k]; G.phase='verdict';
+  $('#l3').innerHTML=`${guide('อ่านหลักฐานทั้งหมดให้ครบก่อนตัดสิน เคสพวกนี้ชอบหลอกนะ!','think')}
+    <div class="l3" style="margin-top:12px">
+      <div class="casefile"><span class="tab">เคสที่ ${G.i+1}/${G.order.length}</span><div style="margin-top:8px">${art(k)}</div><div style="font-family:Mitr;font-size:22px">${c.name}</div></div>
+      <div class="card"><div class="clues">${c.clues.map((x,i)=>`<div class="clue" style="animation-delay:${i*.35}s"><span class="ic">${x[0]}</span><span>${x[1]}</span></div>`).join('')}</div>
+        <div id="ask"><div class="verdict"><button class="btn green" id="vA">🟢 มีชีวิต</button><button class="btn red" id="vD">⚪ ไม่มีชีวิต</button></div></div></div>
+    </div>`;
+  $('#vA').onclick=()=>verdictL3(true); $('#vD').onclick=()=>verdictL3(false);
+}
+function verdictL3(alive){
+  if(G.phase!=='verdict'||G.ended) return; G.phase='reason';
+  const k=G.order[G.i], c=CASES[k], ok=alive===c.alive;
+  if(ok){ G.score+=80; G.stats.correct++; refreshHud(); toast('ตัดสินถูก! +80 ต่อไปเลือกเหตุผล','good',1800); }
+  else { toast(`ยังไม่ถูก ${c.name}${c.alive?'มีชีวิต':'ไม่มีชีวิต'} ลองหาเหตุผลดู`,'bad',2600); if(loseHeart()) return; }
+  const opts=shuffle(c.reasons);
+  $('#ask').innerHTML=`<p style="margin:12px 0 4px"><b>เหตุผลข้อใดอธิบายเคสนี้ได้ดีที่สุด?</b> ${ok?'':`<span class="muted">(${c.name}${c.alive?'มีชีวิต':'ไม่มีชีวิต'})</span>`}</p>
+    <div class="choices">${opts.map((o,i)=>`<button class="choice" data-i="${i}">${esc(o[0])}</button>`).join('')}</div>`;
+  $('#ask').querySelectorAll('.choice').forEach(b=>b.onclick=()=>{
+    if(G.phase!=='reason'||G.ended) return; G.phase='done';
+    const o=opts[+b.dataset.i];
+    if(o[1]){ b.classList.add('ok'); G.score+=70; G.stats.correct++; refreshHud(); }
+    else { b.classList.add('no'); $('#ask').querySelectorAll('.choice').forEach((x,i)=>{ if(opts[i][1]) x.classList.add('ok'); }); if(loseHeart()) return; }
+    unlockBook(k); const g=G;
+    setTimeout(()=>{
+      if(G!==g||g.ended) return;
+      $('#ask').insertAdjacentHTML('beforeend',`<div style="margin-top:10px">${guide(c.note,o[1]?'happy':'sad')}</div>
+        <div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn" id="nx">${G.i+1<G.order.length?'เคสถัดไป ➡️':'สรุปผล 🏁'}</button></div>`);
+      $('#nx').onclick=()=>{ G.i++; if(G.i>=G.order.length){ stopTimer(); G.score+=G.timeLeft; endLevel(true); } else renderCase(); };
+    },500);
+  });
+}
+
+/* ===================== ด่าน 4 ===================== */
+function startL4(){
+  G.cards=shuffle(VIRUS_EV); G.i=0; G.sorted={yes:[],no:[]}; G.phase='sort'; G.argOk=false; G.argTries=0;
+  app.innerHTML = hud()+`${guide('นี่คือคดีที่นักวิทยาศาสตร์ยังถกเถียงกันอยู่! ก่อนอื่นช่วยคัดแยกหลักฐาน 8 ข้อ ว่าข้อไหนสนับสนุนว่าไวรัส "มีชีวิต" และข้อไหนสนับสนุนว่า "ไม่มีชีวิต"','think')}
+    <div class="l4" style="margin-top:12px">
+      <div class="side yes" id="sideYes"><h3>🟢 สนับสนุนว่ามีชีวิต</h3></div>
+      <div class="card center"><div>${art('virus')}</div><div id="vcard"></div></div>
+      <div class="side nono" id="sideNo"><h3>⚪ สนับสนุนว่าไม่มีชีวิต</h3></div>
+    </div><div id="stage2"></div>`;
+  bindQuit(); renderVcard();
+}
+function renderVcard(){
+  const c=G.cards[G.i];
+  $('#vcard').innerHTML=`<div class="evcard" style="min-height:140px;padding:12px"><div class="tx" style="font-size:17px;margin:0">${esc(c[0])}</div><div class="cnt">หลักฐาน ${G.i+1}/${G.cards.length}</div></div>
+    <div class="row" style="justify-content:center;margin-top:10px"><button class="btn green" id="toY">◀ มีชีวิต</button><button class="btn" style="background:#8A6BB8;box-shadow:0 4px 0 #5D3B80" id="toN">ไม่มีชีวิต ▶</button></div>`;
+  $('#toY').onclick=()=>sortV('yes'); $('#toN').onclick=()=>sortV('no');
+}
+function sortV(side){
+  if(G.phase!=='sort'||G.ended) return;
+  const c=G.cards[G.i], ok=side===c[1];
+  if(ok){ G.score+=40; G.stats.correct++; toast('ถูกต้อง +40','good',1200); }
+  else { toast('หลักฐานข้อนี้อยู่อีกฝั่งนะ','bad',2000); if(loseHeart()) return; }
+  G.sorted[c[1]].push(c[0]); refreshHud(); renderSides(false);
+  G.i++; if(G.i<G.cards.length) renderVcard(); else stage2();
+}
+function renderSides(pick){
+  const chip=(t,side)=>`<div class="chip">${pick?`<label><input type="checkbox" data-side="${side}" value="${esc(t)}"><span>${esc(t)}</span></label>`:esc(t)}</div>`;
+  $('#sideYes').innerHTML='<h3>🟢 สนับสนุนว่ามีชีวิต</h3>'+G.sorted.yes.map(t=>chip(t,'yes')).join('');
+  $('#sideNo').innerHTML='<h3>⚪ สนับสนุนว่าไม่มีชีวิต</h3>'+G.sorted.no.map(t=>chip(t,'no')).join('');
+}
+function stage2(){
+  G.phase='argue'; unlockBook('virus'); renderSides(true);
+  $('#vcard').innerHTML=`<p style="margin:6px 0"><b>คัดแยกครบแล้ว!</b></p>`;
+  $('#stage2').innerHTML=`<div class="card" style="margin-top:12px">${guide('ทีนี้ถึงตาเธอสรุปจุดยืน เลือกจุดยืน 1 ข้อ แล้วติ๊กหลักฐาน 2 ข้อจากด้านบนที่สนับสนุนจุดยืนของเธอ (ถ้าเลือก "ก้ำกึ่ง" ให้เลือกฝั่งละ 1 ข้อ)','happy')}
+    <div class="row" style="margin-top:10px" id="pos">
+      <button class="btn ghost" data-p="yes">🟢 ไวรัสมีชีวิต</button><button class="btn ghost" data-p="mid">🟡 ก้ำกึ่ง</button><button class="btn ghost" data-p="no">⚪ ไวรัสไม่มีชีวิต</button>
+      <div class="spacer"></div><button class="btn orange" id="submitArg">📝 ส่งข้อสรุป</button></div></div>`;
+  G.pos=null;
+  $('#pos').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{ G.pos=b.dataset.p; $('#pos').querySelectorAll('[data-p]').forEach(x=>x.className='btn '+(x===b?'':'ghost')); });
+  $('#submitArg').onclick=submitArg;
+}
+function submitArg(){
+  if(G.ended) return;
+  const sel=[...document.querySelectorAll('.side input:checked')].map(x=>x.dataset.side);
+  if(!G.pos){ toast('เลือกจุดยืนก่อนนะ','info'); return; }
+  if(sel.length!==2){ toast('ติ๊กหลักฐานให้ครบ 2 ข้อพอดี','info'); return; }
+  const y=sel.filter(s=>s==='yes').length;
+  const valid = (G.pos==='yes'&&y===2)||(G.pos==='no'&&y===0)||(G.pos==='mid'&&y===1);
+  if(!valid){
+    G.argTries++; G.score=Math.max(0,G.score-50); refreshHud();
+    const hint = G.pos==='yes'?'จุดยืน "มีชีวิต" ต้องใช้หลักฐานฝั่งมีชีวิตทั้ง 2 ข้อ':G.pos==='no'?'จุดยืน "ไม่มีชีวิต" ต้องใช้หลักฐานฝั่งไม่มีชีวิตทั้ง 2 ข้อ':'จุดยืน "ก้ำกึ่ง" ต้องใช้หลักฐานฝั่งละ 1 ข้อ';
+    toast('หลักฐานยังไม่สนับสนุนจุดยืน -50 · '+hint,'bad',3500); return;
+  }
+  G.argOk=true; G.score+=200; refreshHud();
+  const posTh={yes:'ไวรัสมีชีวิต',no:'ไวรัสไม่มีชีวิต',mid:'ไวรัสก้ำกึ่งระหว่างมีชีวิตกับไม่มีชีวิต'}[G.pos];
+  openModal(`<div class="row"><div style="width:110px">${art('virus')}</div><div><h2 style="margin:0;color:var(--good)">📝 ข้อสรุปมีเหตุผลรองรับ +200</h2><div>จุดยืนของเธอ: <b>${posTh}</b></div></div></div>
+    ${guide(VIRUS.note,'happy')}${propTable(VIRUS.marks)}<div class="row" style="justify-content:flex-end"><button class="btn" id="mOk">สรุปผล 🏁</button></div>`);
+  $('#mOk').onclick=()=>{ closeModal(); endLevel(true); };
+}
+
+/* ===================== จบด่าน ===================== */
+function endLevel(passed,reason=''){
+  if(G.ended) return; G.ended=true; stopTimer(); closeModal();
+  const p=player(), l=G.level; let heartBonus=0, st=0;
+  if(passed){
+    heartBonus=50*G.hearts; G.score+=heartBonus;
+    const lost=3-G.hearts;
+    if(l===3) st = lost===0&&G.timeLeft>=60 ? 3 : lost<=1 ? 2 : 1;
+    else if(l===4) st = lost===0&&G.argTries===0 ? 3 : lost<=1 ? 2 : 1;
+    else st = lost===0 ? 3 : lost<=1 ? 2 : 1;
+    const prev=p.levels[l]||{stars:0,score:0};
+    p.levels[l]={stars:Math.max(prev.stars||0,st),score:Math.max(prev.score||0,G.score)};
+    saveDB(); confetti(st*25);
+  }
+  const s=G.stats, acc=(s.correct+s.wrong)?Math.round(100*s.correct/(s.correct+s.wrong)):0;
+  const now=new Date();
+  const dateTh=now.toLocaleDateString('th-TH',{year:'numeric',month:'long',day:'numeric'})+' '+now.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});
+  const extra = l===2 ? `<div>พลังงานเครื่องมือเหลือ</div><div>${G.budget} (+${G.budget*15})</div>` : l===3&&passed ? `<div>โบนัสเวลา</div><div>+${G.timeLeft}</div>` : '';
+  const unlocks = G.newUnlocks.length ? `<p>📁 ปลดล็อกแฟ้มคดี: <b>${G.newUnlocks.map(k=>entryInfo(k).name).join(', ')}</b></p>` : '';
+  const hasNext = passed && l<4 && isUnlocked(l+1);
+  app.innerHTML=`
+  <div class="card result" style="max-width:640px;margin:20px auto">
+    <div style="display:flex;justify-content:center">${bot(passed?'happy':'sad')}</div>
+    <h1 style="margin:0;color:${passed?'var(--good)':'var(--bad)'}">${passed?'🎉 ผ่านด่าน!':'😵 ยังไม่ผ่าน'}</h1>
+    <div style="color:var(--muted)">${LEVELS[l].title}${reason?' · '+reason:''}</div>
+    <div class="bigstars">${passed?'⭐'.repeat(st)+'☆'.repeat(3-st):'☆☆☆'}</div>
+    <div style="font-family:Mitr;font-size:30px">🏆 ${G.score} คะแนน</div>
+    ${passed?`<div class="legend">รวมโบนัสหัวใจที่เหลือ +${heartBonus}</div>`:''}
+    <div class="stats"><div>ความแม่นยำ</div><div>${acc}% (ถูก ${s.correct} / ผิด ${s.wrong})</div>${extra}</div>
+    ${unlocks}
+    <hr style="border:none;border-top:1px dashed var(--line)">
+    <div><b>${esc(p.name)}</b>${p.no?` · เลขที่ ${esc(p.no)}`:''} · ${CLASS_NAME}</div>
+    <div class="legend">วิชา${SUBJECT} · ${dateTh}</div>
+    <div class="row" style="justify-content:center;margin-top:14px">
+      <button class="btn ghost" id="again">🔁 เล่นอีกครั้ง</button>
+      ${hasNext?`<button class="btn" id="next">➡️ ด่านถัดไป</button>`:''}
+      <button class="btn ghost" id="home">🏠 หน้าหลัก</button>
+    </div>
+  </div>`;
+  $('#again').onclick=()=>startLevel(l);
+  if($('#next')) $('#next').onclick=()=>startLevel(l+1);
+  $('#home').onclick=showHome;
+}
+
+showHome();
+</script>
+<script type="module">
+import { auth, db, onAuthStateChanged, doc, getDoc, isTeacherEmail, fullName } from "../js/common.js?v=5";
+onAuthStateChanged(auth, async u => {
+  if (!u) return location.replace("../index.html");
+  if (isTeacherEmail(u.email)) return initPlayer(u.uid, "ครู (โหมดทดลอง)", "", true);
+  try {
+    const s = await getDoc(doc(db, "students", u.uid));
+    const me = s.exists() ? s.data() : {};
+    const name = fullName(me) + (me.nickname ? ` (${me.nickname})` : "");
+    initPlayer(u.uid, name || "นักเรียน", me.no ?? "");
+  } catch (e) {
+    initPlayer(u.uid, "นักเรียน", "");
+  }
+});
+</script>
+</body>
+</html>
