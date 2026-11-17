@@ -20,4 +20,13 @@ export const GAMES = [
     file: "games/sugar-factory.html",
     sections: ["daily-r1"],
   },
+  {
+    id: "living-check",
+    title: "ด่านตรวจสิ่งมีชีวิต",
+    subtitle: "สมบัติของสิ่งมีชีวิต",
+    desc: "เป็นเจ้าหน้าที่แล็บ จับคู่หลักฐานกับสมบัติของสิ่งมีชีวิต ใช้เครื่องมือตรวจตัวอย่างลึกลับ ไขเคสหลอกอย่างไฟ หุ่นยนต์ และล่อ แล้วปิดท้ายด้วยคดีไวรัส",
+    minutes: 20,
+    file: "games/living-check.html",
+    sections: ["bio-r1"],
+  },
 ];
